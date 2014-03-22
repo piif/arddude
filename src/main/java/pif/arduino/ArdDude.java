@@ -27,31 +27,38 @@ public class ArdDude {
 
 	static List<String> commandArgs;
 
-	static void scanFile() {
+	static boolean scanFile() {
 		long t = source.lastModified();
 		if (lastMod < t) {
 			lastMod = t;
 			launchUpload();
+			return true;
 		}
+		return false;
 	}
 
 	static void launchUpload() {
-		System.out.println("** Launching upload ...");
+		System.out.println("** Launching upload ..." + commandArgs);
 		if (state == STATE_CONNECTED || state == STATE_CONNECTING) {
 			// change state before to avoid thread to reconnect just after
 			state = STATE_UPLOADING;
+System.out.println("disconnect");
 			disconnect();
 		}
 
 		state = STATE_UPLOADING;
 
 		try {
+System.out.println("new ProcessBuilder");
 			ProcessBuilder pb = new ProcessBuilder(commandArgs);
 			pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 			pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+System.out.println("start");
 			Process p = pb.start();
+System.out.println("wait");
 			p.waitFor();
 			int exitCode = p.exitValue();
+System.out.println("exitCode = " + exitCode);
 			if (exitCode != 0) {
 				System.err.println("Exit code " + exitCode);
 				System.exit(1);
@@ -69,15 +76,19 @@ public class ArdDude {
 	static OutputStream outStream;
 
 	static SerialPortEventListener serialReader = new SerialPortEventListener() {
-		public void serialEvent(SerialPortEvent arg0) {
-			int data;
-
-			try {
-				while ((data = inStream.read()) > -1 ) {
-					System.out.print((char)data);
+		public void serialEvent(SerialPortEvent event) {
+			switch (event.getEventType()) {
+			case SerialPortEvent.DATA_AVAILABLE:
+				try {
+					while (inStream.available() > 0) {
+						int data = inStream.read();
+						System.out.print((char)data);
+					}
+				} catch ( IOException e ) {
+					e.printStackTrace();
 				}
-			} catch ( IOException e ) {
-				e.printStackTrace();
+			default:
+				System.err.println("serialEvent " + event.getEventType() + " ?");
 			}
 		}
 	};
@@ -116,12 +127,11 @@ public class ArdDude {
 		}
 		inStream = null;
 		outStream = null;
-		connection.removeEventListener();
 		connection = null;
 		state = STATE_NONE;
 	}
 
-	private static final Pattern PORT_PATTERN = Pattern.compile("-P(\\w*)");
+	private static final Pattern PORT_PATTERN = Pattern.compile("-P(.*)");
 	private static final Pattern FILE_PATTERN = Pattern.compile("-U\\w+:\\w:([^:]*)(:.*)?");
 
 	public static void main(String[] args) {
@@ -170,7 +180,9 @@ public class ArdDude {
 			lastMod = source.lastModified();
 		}
 
-		connect();
+		if (!scanFile()) {
+			connect();
+		}
 
 		Timer t = new Timer();
 		TimerTask task = new TimerTask() {
