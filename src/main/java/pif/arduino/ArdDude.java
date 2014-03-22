@@ -42,23 +42,18 @@ public class ArdDude {
 		if (state == STATE_CONNECTED || state == STATE_CONNECTING) {
 			// change state before to avoid thread to reconnect just after
 			state = STATE_UPLOADING;
-System.out.println("disconnect");
 			disconnect();
 		}
 
 		state = STATE_UPLOADING;
 
 		try {
-System.out.println("new ProcessBuilder");
 			ProcessBuilder pb = new ProcessBuilder(commandArgs);
 			pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 			pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-System.out.println("start");
 			Process p = pb.start();
-System.out.println("wait");
 			p.waitFor();
 			int exitCode = p.exitValue();
-System.out.println("exitCode = " + exitCode);
 			if (exitCode != 0) {
 				System.err.println("Exit code " + exitCode);
 				System.exit(1);
@@ -77,8 +72,7 @@ System.out.println("exitCode = " + exitCode);
 
 	static SerialPortEventListener serialReader = new SerialPortEventListener() {
 		public void serialEvent(SerialPortEvent event) {
-			switch (event.getEventType()) {
-			case SerialPortEvent.DATA_AVAILABLE:
+			if (event.getEventType() == SerialPortEvent.DATA_AVAILABLE) {
 				try {
 					while (inStream.available() > 0) {
 						int data = inStream.read();
@@ -87,8 +81,6 @@ System.out.println("exitCode = " + exitCode);
 				} catch ( IOException e ) {
 					e.printStackTrace();
 				}
-			default:
-				System.err.println("serialEvent " + event.getEventType() + " ?");
 			}
 		}
 	};

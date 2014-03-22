@@ -34,19 +34,56 @@
 					</archive>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>2.2</version>
+				<configuration>
+					<transformers>
+						<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+							<mainClass>${app.main.class}</mainClass>
+						</transformer>
+					</transformers>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 
 	<dependencies>
-		<dependency>
+		<!--dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.16</version>
-		</dependency>
+		</dependency-->
 		<dependency>
+				<groupId>de.root1</groupId>
+				<artifactId>rxtx-rebundled</artifactId>
+				<version>2.1-7r2-3</version>
+		</dependency>
+		<!--dependency>
 			<groupId>org.rxtx</groupId>
 			<artifactId>rxtx</artifactId>
 			<version>2.1.7</version>
-		</dependency>
+		</dependency-->
 	</dependencies>
-</project>
+
+	<repositories>			
+		<repository>
+			<id>root1-releases</id>
+			<name>root1.de Releases Repository</name>
+			<layout>default</layout>
+			<url>http://nexus.root1.de/content/repositories/releases/</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+ </project>

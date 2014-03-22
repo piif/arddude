@@ -2,6 +2,8 @@ arddude
 =======
 
 Mix between arvdude and serial console, for arduino
+Need java (to execute) and maven (to compile) + avrdude binary (can be found in
+arduino sdk)
 
 This code is made to run avrdude and swap to a serial console just after.
 
@@ -14,4 +16,11 @@ and open it again after.
 Thus, you just have to launch it once to update your arduino automatically, and stay connected to
 its console.
 
-TODO : update shell and maven build to generate a full standalone jar and run it from command line.
+Depends on rxtx-rebundled (http://dev.root1.de/projects/rxtx-rebundled) to embed native serial libs.
+
+* to build it
+  mvn clean install
+
+* to launch it
+  java -jar generated_jar [-f] /path/to/avrdude avrdude arguments ...
+  use -f option to force an upload at startup
