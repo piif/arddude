@@ -3,13 +3,6 @@
 HERE="$(cd $(dirname $0) ; /bin/pwd)"
 ROOTDIR="$(dirname "$HERE")"
 
-# TODO : que faire de ce chemin, s'il faut reprendre une ligne de commande de toutes façons ?
-AVRTOOLS=/SRC/Arduino/hardware/tools/avr
-
-COM="$1"
-SRC="$2"
-shift 2
-
 CLASSPATH="$(grep "lib" $ROOTDIR/.classpath |cut -d '"' -f 4|tr '\n' :)$ROOTDIR/bin"
 
 if expr $(uname) : CYGWIN > /dev/null ; then
@@ -25,6 +18,8 @@ else
 	JAVA=java
 fi
 
-JAR="$(/bin/ls -d1 target/ArdDude-*.jar | tail -1)"
+JAR="$(/bin/ls -d1 $ROOTDIR/target/ArdDude-*.jar | tail -1)"
+opt="-Djava.library.path=/usr/lib64/rxtx"
 
-"$JAVA" -classpath "$CLASSPATH" -jar "$JAR" -scan "$SRC" "-P$COM" "$AVRTOOLS/bin/avrdude.exe" "-Uflash:w:$SRC:a" -C$AVRTOOLS/etc/avrdude.conf "$@"
+##"$JAVA" -cp "$CLASSPATH" $opt -jar "$JAR" "$@"
+"$JAVA" -cp "$CLASSPATH" $opt pif.arduino.ArdDude "$@"
