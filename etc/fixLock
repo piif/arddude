@@ -1,0 +1,3 @@
+chmod 775 /var/lock
+chgrp lock /var/lock
+
