@@ -21,6 +21,7 @@ public class ArdDude {
 	static int baudRate = 115200;
 
 	static boolean forceUpload = false;
+	static boolean forceReset = false;
 	static String fileName;
 	static File source;
 	static long lastMod;
@@ -38,7 +39,6 @@ public class ArdDude {
 	}
 
 	static void launchUpload() {
-		System.out.println("** Launching upload ..." + commandArgs);
 		if (state == STATE_CONNECTED || state == STATE_CONNECTING) {
 			// change state before to avoid thread to reconnect just after
 			state = STATE_UPLOADING;
@@ -46,6 +46,12 @@ public class ArdDude {
 		}
 
 		state = STATE_UPLOADING;
+
+		if (forceReset) {
+			reset();
+		}
+
+		System.out.println("** Launching upload ..." + commandArgs);
 
 		try {
 			ProcessBuilder pb = new ProcessBuilder(commandArgs);
@@ -62,6 +68,10 @@ public class ArdDude {
 			state = STATE_FAIL;
 			e.printStackTrace();
 			System.exit(1);
+		}
+
+		if (forceReset) {
+			reset();
 		}
 
 		connect();
@@ -113,6 +123,30 @@ public class ArdDude {
 		connection.notifyOnDataAvailable(true);
 	}
 
+	static void reset() {
+		try {
+			System.out.println("** force serial reset");
+			// Get the port's ownership
+			connection = (SerialPort) portId.open("ArdDude", 5000);
+			connection.setSerialPortParams(1200, SerialPort.DATABITS_8,
+					SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+			connection.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+
+			Thread.sleep(1500);
+
+			connection.close();
+
+			Thread.sleep(1500);
+
+		} catch(Exception e) {
+			state = STATE_FAIL;
+			// or ignore ?
+			e.printStackTrace();
+			connection.close();
+			System.exit(1);
+		}
+	}
+
 	static void disconnect() {
 		if (connection != null) {
 			connection.close();
@@ -130,9 +164,16 @@ public class ArdDude {
 		commandArgs = new ArrayList<String>(args.length);
 
 		int i = 0;
-		if ("-f".equals(args[0])) {
-			forceUpload = true;
-			i++;
+		while(true) {
+			if ("-f".equals(args[i])) {
+				forceUpload = true;
+				i++;
+			} else if ("-r".equals(args[i])) {
+				forceReset = true;
+				i++;
+			} else {
+				break;
+			}
 		}
 		for(; i < args.length; i++) {
 			Matcher m;
