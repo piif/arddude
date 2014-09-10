@@ -16,6 +16,7 @@ public class ArdDude {
 	static short state = STATE_NONE;
 
 	static String portName;
+	static int  portNameParam;
 	static CommPortIdentifier portId;
 	static SerialPort connection;
 	static int baudRate = 115200;
@@ -48,10 +49,11 @@ public class ArdDude {
 		state = STATE_UPLOADING;
 
 		if (forceReset) {
-			reset();
+			String newPortName = reset();
+			commandArgs.set(portNameParam, newPortName);
 		}
 
-		System.out.println("** Launching upload ..." + commandArgs);
+		System.out.println("** Launching " + commandArgs + " ...");
 
 		try {
 			ProcessBuilder pb = new ProcessBuilder(commandArgs);
@@ -123,29 +125,104 @@ public class ArdDude {
 		connection.notifyOnDataAvailable(true);
 	}
 
-	static void reset() {
+	static List<String> list() {
+		List<String> list = new ArrayList<String>();
 		try {
-			System.out.println("** force serial reset");
-			// Get the port's ownership
-			connection = (SerialPort) portId.open("ArdDude", 5000);
-			connection.setSerialPortParams(1200, SerialPort.DATABITS_8,
-					SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-			connection.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+			// System.err.println("trying");
+			Enumeration<CommPortIdentifier> portList = CommPortIdentifier.getPortIdentifiers();
+			// System.err.println("got port list");
+			while (portList.hasMoreElements()) {
+				CommPortIdentifier portId = portList.nextElement();
+				// System.out.println(portId);
+				if (portId.getPortType() == CommPortIdentifier.PORT_SERIAL) {
+					String name = portId.getName();
+					list.add(name);
+				}
+			}
+		} catch (UnsatisfiedLinkError e) {
+			throw new RuntimeException("ports", e);
+		} catch (Exception e) {
+			throw new RuntimeException("ports", e);
+		}
+		return list;
+	}
 
-			Thread.sleep(1500);
+	static String reset() {
+		String newPortName = null;
+		try {
 
-			connection.close();
+			// Toggle 1200 bps on selected serial port to force board reset.
+			List<String> before = list();
+			if (before.contains(portName)) {
+				System.out.println("Forcing reset using 1200bps open/close on port " + portName);
+				SerialPort connection = (SerialPort) portId.open("ArdDude", 5000);
+				connection.setSerialPortParams(1200, SerialPort.DATABITS_8,
+						SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+				connection.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+	
+				Thread.sleep(500);
+				connection.close();
+				Thread.sleep(500);
+			}
 
-			Thread.sleep(1500);
-
+			// Wait for a port to appear on the list
+			int elapsed = 0;
+			while (elapsed < 10000) {
+				List<String> now = list();
+				List<String> diff = new ArrayList<String>(now);
+				diff.removeAll(before);
+				System.out.print("PORTS {");
+				for (String p : before) {
+					System.out.print(p + ", ");
+				}
+				System.out.print("} / {");
+				for (String p : now) {
+					System.out.print(p + ", ");
+				}
+				System.out.print("} => {");
+				for (String p : diff) {
+					System.out.print(p + ", ");
+				}
+				System.out.println("}");
+				if (diff.size() > 0) {
+					newPortName = diff.get(0);
+					System.out.println("Found upload port: " + newPortName);
+					break;
+				}
+				before = now;
+				Thread.sleep(250);
+				elapsed += 250;
+			}
 		} catch(Exception e) {
-			state = STATE_FAIL;
-			// or ignore ?
-			e.printStackTrace();
-			connection.close();
+			System.err.println("Can't reset port : " + e);
 			System.exit(1);
 		}
+		return newPortName;
 	}
+
+//	static void reset() {
+//		try {
+//			System.out.println("** force serial reset");
+//			// Get the port's ownership
+//			connection = (SerialPort) portId.open("ArdDude", 5000);
+//			connection.setSerialPortParams(1200, SerialPort.DATABITS_8,
+//					SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+//			connection.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
+//
+//			Thread.sleep(1500);
+//
+//			connection.close();
+//
+//			Thread.sleep(1500);
+//
+//		} catch(Exception e) {
+//			state = STATE_FAIL;
+//			// or ignore ?
+//			e.printStackTrace();
+//			connection.close();
+//			System.exit(1);
+//		}
+//	}
 
 	static void disconnect() {
 		if (connection != null) {
@@ -160,8 +237,22 @@ public class ArdDude {
 	private static final Pattern PORT_PATTERN = Pattern.compile("-P(.*)");
 	private static final Pattern FILE_PATTERN = Pattern.compile("-U\\w+:\\w:([^:]*)(:.*)?");
 
+	public static void usage() {
+		System.out.println("adrdude [-f] [-r] avrdude command line ...");
+		System.out.println(" launch a console to serial and relaunch upload everytime image file is modified");
+		System.out.println(" -f force upload at startup");
+		System.out.println(" -r force serial reset before upload");
+		System.out.println(" command line must contain serial device and image filename to look at");
+		System.out.println(" in console, !exit stop connection and !upload force new upload");
+		System.exit(0);
+	}
+
 	public static void main(String[] args) {
 		commandArgs = new ArrayList<String>(args.length);
+
+		if (args.length < 1 || "-h".equals(args[0]) || "--help".equals(args[0])) {
+			usage();
+		}
 
 		int i = 0;
 		while(true) {
@@ -179,6 +270,7 @@ public class ArdDude {
 			Matcher m;
 			if ((m = PORT_PATTERN.matcher(args[i])).matches()) {
 				portName = m.group(1);
+				portNameParam = commandArgs.size();
 			} else if ((m = FILE_PATTERN.matcher(args[i])).matches()) {
 				fileName = m.group(1);
 			}
@@ -193,10 +285,6 @@ public class ArdDude {
 			System.err.println("Can't find file to scan in command line");
 			System.exit(1);
 		}
-
-		// ugly hack found here :
-		// https://bugs.launchpad.net/ubuntu/+source/rxtx/+bug/367833/comments/6
-		System.setProperty("gnu.io.rxtx.SerialPorts", portName);
 
 		try {
 			// Obtain a CommPortIdentifier object for the port you want to open
