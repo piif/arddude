@@ -50,7 +50,9 @@ public class ArdDude implements CommPortOwnershipListener {
 
 		if (forceReset) {
 			String newPortName = reset(portName);
-			commandArgs.set(portNameParam, "-P" + newPortName);
+			if (newPortName != null) {
+				commandArgs.set(portNameParam, "-P" + newPortName);
+			}
 		}
 
 		System.out.println("** Launching " + commandArgs + " ...");
