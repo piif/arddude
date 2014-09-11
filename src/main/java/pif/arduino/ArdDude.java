@@ -6,7 +6,7 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.*;
 
-public class ArdDude {
+public class ArdDude implements CommPortOwnershipListener {
 	static final short STATE_NONE = 0;
 	static final short STATE_UPLOADING = 1;
 	static final short STATE_CONNECTING = 2;
@@ -15,21 +15,21 @@ public class ArdDude {
 
 	static short state = STATE_NONE;
 
-	static String portName;
-	static int  portNameParam;
-	static CommPortIdentifier portId;
-	static SerialPort connection;
-	static int baudRate = 115200;
+	String portName;
+	int  portNameParam;
+	CommPortIdentifier portId;
+	SerialPort connection;
+	int baudRate = 115200;
 
-	static boolean forceUpload = false;
-	static boolean forceReset = false;
-	static String fileName;
-	static File source;
-	static long lastMod;
+	boolean forceUpload = false;
+	boolean forceReset = false;
+	String fileName;
+	File source;
+	long lastMod;
 
-	static List<String> commandArgs;
+	List<String> commandArgs;
 
-	static boolean scanFile() {
+	boolean scanFile() {
 		long t = source.lastModified();
 		if (lastMod < t) {
 			lastMod = t;
@@ -39,7 +39,7 @@ public class ArdDude {
 		return false;
 	}
 
-	static void launchUpload() {
+	void launchUpload() {
 		if (state == STATE_CONNECTED || state == STATE_CONNECTING) {
 			// change state before to avoid thread to reconnect just after
 			state = STATE_UPLOADING;
@@ -49,8 +49,8 @@ public class ArdDude {
 		state = STATE_UPLOADING;
 
 		if (forceReset) {
-			String newPortName = reset();
-			commandArgs.set(portNameParam, newPortName);
+			String newPortName = reset(portName);
+			commandArgs.set(portNameParam, "-P" + newPortName);
 		}
 
 		System.out.println("** Launching " + commandArgs + " ...");
@@ -73,16 +73,22 @@ public class ArdDude {
 		}
 
 		if (forceReset) {
-			reset();
+			try {
+				System.out.println("wait a little before reconnection ..");
+				Thread.sleep(1000);
+				reset(null);
+			} catch (InterruptedException e) {
+				// don't matter
+			}
 		}
 
 		connect();
 	}
 
-	static InputStream inStream;
-	static OutputStream outStream;
+	InputStream inStream;
+	OutputStream outStream;
 
-	static SerialPortEventListener serialReader = new SerialPortEventListener() {
+	SerialPortEventListener serialReader = new SerialPortEventListener() {
 		public void serialEvent(SerialPortEvent event) {
 			if (event.getEventType() == SerialPortEvent.DATA_AVAILABLE) {
 				try {
@@ -97,7 +103,7 @@ public class ArdDude {
 		}
 	};
 
-	static void connect() {
+	void connect() {
 		state = STATE_CONNECTING;
 
 		try {
@@ -129,6 +135,7 @@ public class ArdDude {
 		List<String> list = new ArrayList<String>();
 		try {
 			// System.err.println("trying");
+			@SuppressWarnings("unchecked")
 			Enumeration<CommPortIdentifier> portList = CommPortIdentifier.getPortIdentifiers();
 			// System.err.println("got port list");
 			while (portList.hasMoreElements()) {
@@ -147,13 +154,13 @@ public class ArdDude {
 		return list;
 	}
 
-	static String reset() {
+	String reset(String portName) {
 		String newPortName = null;
 		try {
 
 			// Toggle 1200 bps on selected serial port to force board reset.
 			List<String> before = list();
-			if (before.contains(portName)) {
+			if (portName != null && before.contains(portName)) {
 				System.out.println("Forcing reset using 1200bps open/close on port " + portName);
 				SerialPort connection = (SerialPort) portId.open("ArdDude", 5000);
 				connection.setSerialPortParams(1200, SerialPort.DATABITS_8,
@@ -200,31 +207,7 @@ public class ArdDude {
 		return newPortName;
 	}
 
-//	static void reset() {
-//		try {
-//			System.out.println("** force serial reset");
-//			// Get the port's ownership
-//			connection = (SerialPort) portId.open("ArdDude", 5000);
-//			connection.setSerialPortParams(1200, SerialPort.DATABITS_8,
-//					SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
-//			connection.setFlowControlMode(SerialPort.FLOWCONTROL_NONE);
-//
-//			Thread.sleep(1500);
-//
-//			connection.close();
-//
-//			Thread.sleep(1500);
-//
-//		} catch(Exception e) {
-//			state = STATE_FAIL;
-//			// or ignore ?
-//			e.printStackTrace();
-//			connection.close();
-//			System.exit(1);
-//		}
-//	}
-
-	static void disconnect() {
+	void disconnect() {
 		if (connection != null) {
 			connection.close();
 		}
@@ -232,6 +215,13 @@ public class ArdDude {
 		outStream = null;
 		connection = null;
 		state = STATE_NONE;
+	}
+
+	@Override
+	public void ownershipChange(int arg0) {
+		// TODO Auto-generated method stub
+		System.err.println("ownershipChange !!" + arg0);
+		disconnect();
 	}
 
 	private static final Pattern PORT_PATTERN = Pattern.compile("-P(.*)");
@@ -247,7 +237,7 @@ public class ArdDude {
 		System.exit(0);
 	}
 
-	public static void main(String[] args) {
+	void run(String[] args) {
 		commandArgs = new ArrayList<String>(args.length);
 
 		if (args.length < 1 || "-h".equals(args[0]) || "--help".equals(args[0])) {
@@ -304,6 +294,7 @@ public class ArdDude {
 			System.err.println("Can't open port " + portName + " : " + e);
 			System.exit(1);
 		}
+		portId.addPortOwnershipListener(this);
 
 		if (forceUpload) {
 			lastMod = -1;
@@ -347,5 +338,10 @@ public class ArdDude {
 
 		disconnect();
 		System.exit(0);
+	}
+
+	public static void main(String[] args) {
+		ArdDude myDude = new ArdDude();
+		myDude.run(args);
 	}
 }
