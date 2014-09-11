@@ -11,8 +11,12 @@ if expr $(uname) : Linux > /dev/null ; then
 	for i in $(seq 0 20) ; do
 		ttys="$ttys:/dev/ttyS$i:/dev/ttyUSB$i:/dev/ttyACM$i"
 	done 
-	options="-Dgnu.io.rxtx.SerialPorts=$ttys"
+else
+	for i in $(seq 1 30) ; do
+		ttys="$ttys;com$i"
+	done 
 fi
+options="-Dgnu.io.rxtx.SerialPorts=$ttys"
 
 JAR="$(/bin/ls -d1 $ROOTDIR/target/ArdDude-*.jar | tail -1)"
 if expr $(uname) : CYGWIN > /dev/null ; then
