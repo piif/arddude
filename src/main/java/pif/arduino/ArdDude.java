@@ -273,6 +273,9 @@ public class ArdDude {
 				portNameParam = commandArgs.size();
 			} else if ((m = FILE_PATTERN.matcher(args[i])).matches()) {
 				fileName = m.group(1);
+				if (fileName.startsWith("/cygdrive/")) {
+					fileName = fileName.charAt(10) + ":" + fileName.substring(11);
+				}
 			}
 			commandArgs.add(args[i]);
 		}
@@ -286,6 +289,14 @@ public class ArdDude {
 			System.exit(1);
 		}
 
+		source = new File(fileName);
+		if (source.exists()) {
+			System.out.println("Scanning file " + source);
+		} else {
+			System.err.println("Can't find file " + source);
+			System.exit(1);
+		}
+
 		try {
 			// Obtain a CommPortIdentifier object for the port you want to open
 			portId = CommPortIdentifier.getPortIdentifier(portName);
@@ -294,7 +305,6 @@ public class ArdDude {
 			System.exit(1);
 		}
 
-		source = new File(fileName);
 		if (forceUpload) {
 			lastMod = -1;
 		} else {
