@@ -38,7 +38,7 @@ public class Console extends Thread {
 		 * called when console receives command it can't handle itself
 		 * @param command command line, without '!' prefix
 		 */
-		public void onCommand(String command);
+		public boolean onCommand(String command);
 
 		/**
 		 * called when console is closed (Ctrl-D or !exit command, or unrecoverable error)
@@ -119,7 +119,10 @@ public class Console extends Thread {
 				peer.onOutgoingData(data);
 			}
 		} else {
-			peer.onCommand(line);
+			if (!peer.onCommand(line)) {
+				logger.warn("Unknown command " + line);
+				
+			}
 		}
 	}
 

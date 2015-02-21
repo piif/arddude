@@ -6,7 +6,11 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.*;
 
-public class ArdDude implements CommPortOwnershipListener {
+import org.apache.log4j.Logger;
+
+public class ArdDude implements CommPortOwnershipListener, Console.ConsolePeer {
+	Logger logger = Logger.getLogger(ArdDude.class);
+
 	static final short STATE_NONE = 0;
 	static final short STATE_UPLOADING = 1;
 	static final short STATE_CONNECTING = 2;
@@ -14,6 +18,8 @@ public class ArdDude implements CommPortOwnershipListener {
 	static final short STATE_FAIL = -1;
 
 	static short state = STATE_NONE;
+
+	static final int MAX_INPUT = 1024;
 
 	String portName;
 	int  portNameParam;
@@ -28,6 +34,8 @@ public class ArdDude implements CommPortOwnershipListener {
 	long lastMod;
 
 	List<String> commandArgs;
+
+	Console console;
 
 	boolean scanFile() {
 		long t = source.lastModified();
@@ -93,10 +101,18 @@ public class ArdDude implements CommPortOwnershipListener {
 	SerialPortEventListener serialReader = new SerialPortEventListener() {
 		public void serialEvent(SerialPortEvent event) {
 			if (event.getEventType() == SerialPortEvent.DATA_AVAILABLE) {
+				byte[] buffer = new byte[MAX_INPUT];
+				int index = 0;
 				try {
 					while (inStream.available() > 0) {
-						int data = inStream.read();
-						System.out.print((char)data);
+						buffer[index++] = (byte)inStream.read();
+						if (index == MAX_INPUT) {
+							console.onIncomingData(buffer);
+							index = 0;
+						}
+					}
+					if (index != 0) {
+						console.onIncomingData(Arrays.copyOf(buffer, index));
 					}
 				} catch ( IOException e ) {
 					e.printStackTrace();
@@ -240,12 +256,13 @@ public class ArdDude implements CommPortOwnershipListener {
 	}
 
 	void run(String[] args) {
+		// read command line argument
 		commandArgs = new ArrayList<String>(args.length);
 
+		// look for own flags
 		if (args.length < 1 || "-h".equals(args[0]) || "--help".equals(args[0])) {
 			usage();
 		}
-
 		int i = 0;
 		while(true) {
 			if ("-f".equals(args[i])) {
@@ -258,6 +275,7 @@ public class ArdDude implements CommPortOwnershipListener {
 				break;
 			}
 		}
+		// then read avrdude command line
 		for(; i < args.length; i++) {
 			Matcher m;
 			if ((m = PORT_PATTERN.matcher(args[i])).matches()) {
@@ -271,7 +289,7 @@ public class ArdDude implements CommPortOwnershipListener {
 			}
 			commandArgs.add(args[i]);
 		}
-
+		// must find port and file path
 		if (portName == null) {
 			System.err.println("Can't find port name in command line");
 			System.exit(1);
@@ -289,6 +307,7 @@ public class ArdDude implements CommPortOwnershipListener {
 			System.exit(1);
 		}
 
+		// get port
 		try {
 			// Obtain a CommPortIdentifier object for the port you want to open
 			portId = CommPortIdentifier.getPortIdentifier(portName);
@@ -308,6 +327,7 @@ public class ArdDude implements CommPortOwnershipListener {
 			connect();
 		}
 
+		// scan file every 2 seconds
 		Timer t = new Timer();
 		TimerTask task = new TimerTask() {
 			@Override
@@ -317,29 +337,39 @@ public class ArdDude implements CommPortOwnershipListener {
 		};
 		t.schedule(task, 0, 2000);
 
-		BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
-		String inputLine;
-		try {
-			while((inputLine = input.readLine()) != null) {
-				if ("!exit".equals(inputLine)) {
-					break;
-				} else if ("!upload".equals(inputLine)) {
-					launchUpload();
-					continue;
-				}
-				while (state != STATE_CONNECTED) {
-					// comment facilement bloquer tant qu'on n'est pas connecté ?
-					Thread.sleep(500);
-				}
-				outStream.write((inputLine + "\n").getBytes());
-			}
-		} catch (Exception e) {
-			// ignore ?
-			e.printStackTrace();
-		}
+		console = new Console(this);
+		console.start();
+	}
 
+	public void onOutgoingData(byte data[]) {
+		while (state != STATE_CONNECTED) {
+			// comment facilement bloquer tant qu'on n'est pas connecté ?
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				// noop
+			}
+		}
+		try {
+			outStream.write(data);
+		} catch (IOException e) {
+			logger.error("Can't send data");
+		}
+	}
+
+	public boolean onCommand(String command) {
+		if ("upload".equals(command)) {
+			launchUpload();
+			return true;
+		}
+		// TODO : cr lf crlf none
+		logger.info("received command '" + command + "'");
+		return false;
+	}
+
+	public void onDisconnect(int status) {
 		disconnect();
-		System.exit(0);
+		System.exit(status);
 	}
 
 	public static void main(String[] args) {

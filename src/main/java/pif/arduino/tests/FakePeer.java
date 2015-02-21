@@ -31,9 +31,12 @@ public class FakePeer implements Console.ConsolePeer {
 			console.onIncomingData(data);
 		}
 	}
-	public void onCommand(String command) {
-		// TODO : cr lf crlf none
-		logger.info("received command '" + command + "'");
+	public boolean onCommand(String command) {
+		if (command.equals("test")) {
+			logger.info("received command '" + command + "'");
+			return true;
+		}
+		return false;
 	}
 
 	public void onDisconnect(int status) {
