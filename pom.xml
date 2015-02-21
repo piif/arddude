@@ -58,16 +58,21 @@
 	</build>
 
 	<dependencies>
-		<!--dependency>
+		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.16</version>
-		</dependency-->
+		</dependency>
 		<dependency>
 				<groupId>de.root1</groupId>
 				<artifactId>rxtx-rebundled</artifactId>
 				<version>2.1-7r2-3</version>
 		</dependency>
+        <dependency>
+            <groupId>jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>2.12</version>
+        </dependency>
 	</dependencies>
 
 	<repositories>			
@@ -80,5 +85,10 @@
 				<enabled>false</enabled>
 			</snapshots>
 		</repository>
+        <repository>
+            <id>jline</id>
+            <name>JLine Project Repository</name>
+            <url>http://jline.sourceforge.net/m2repo</url>
+        </repository>
 	</repositories>
  </project>
