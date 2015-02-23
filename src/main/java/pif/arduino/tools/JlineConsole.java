@@ -11,6 +11,14 @@ import jline.console.ConsoleReader;
  */
 public class JlineConsole extends ConsoleReader {
 	Logger logger = Logger.getLogger(JlineConsole.class);
+	
+	static {
+		if (System.getenv("TERM") != null && System.getenv("APPDATA") != null) {
+			// if cygwin, must force terminal mode
+			System.setProperty("jline.terminal", "jline.UnixTerminal");
+		}
+	}
+
 	public JlineConsole() throws IOException {
 		super();
 	}

@@ -320,6 +320,9 @@ public class ArdDude implements CommPortOwnershipListener, Console.ConsolePeer {
 
 		// get port
 		try {
+			// ugly hack found here :
+			// https://bugs.launchpad.net/ubuntu/+source/rxtx/+bug/367833/comments/6
+			System.setProperty("gnu.io.rxtx.SerialPorts", portName);
 			// Obtain a CommPortIdentifier object for the port you want to open
 			portId = CommPortIdentifier.getPortIdentifier(portName);
 		} catch(Exception e) {
