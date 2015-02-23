@@ -9,7 +9,7 @@ import java.util.regex.*;
 import org.apache.log4j.Logger;
 
 public class ArdDude implements CommPortOwnershipListener, Console.ConsolePeer {
-	Logger logger = Logger.getLogger(ArdDude.class);
+	private static Logger logger = Logger.getLogger(ArdDude.class);
 
 	static final short STATE_NONE = 0;
 	static final short STATE_UPLOADING = 1;

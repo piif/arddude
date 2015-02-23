@@ -1,21 +1,14 @@
 package pif.arduino;
 
 import java.io.*;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
 
 import pif.arduino.tools.ArduinoConfig;
-import pif.arduino.tools.ClassPathHacker;
-
+import pif.arduino.tools.LoadConfig;
 import processing.app.BaseNoGui;
-import processing.app.PreferencesData;
 import processing.app.debug.TargetBoard;
-import processing.app.debug.TargetPackage;
 import processing.app.debug.TargetPlatform;
 import processing.app.helpers.PreferencesMap;
 import processing.app.helpers.StringReplacer;
@@ -28,10 +21,10 @@ public class MakeMake {
 		options = new Options();
 		options.addOption("h", "help", false, "usage");
 		options.addOption("I", "arduino-ide", true, "base installation directory of Arduino IDE");
-		options.addOption("p", "preferences-file", false, "alternate Arduino IDE preferences file");
+		options.addOption(LoadConfig.PREFERENCES_OPTION, false, "alternate Arduino IDE preferences file");
 		OptionGroup choice =  new OptionGroup();
 		choice.addOption(new Option("b", "board", true, "target board name"));
-		choice.addOption(new Option("l", "list-boards", false, "list available boards"));
+		choice.addOption(new Option("B", "boards", false, "list available boards"));
 		choice.setRequired(true);
 		options.addOptionGroup(choice);
 		options.addOption("o", "output", true, "output directory for generated files");
@@ -50,209 +43,16 @@ public class MakeMake {
 			usage(0);
 		}
 
-		String arduinoIdePath = findIdePathAndClasses(commandLine);
-		if (arduinoIdePath == null) {
-			// nothing worked
-			logger.fatal("Can't find arduino IDE path");
-			usage(1);
+		if (!LoadConfig.load(commandLine)) {
+			usage(2);
 		}
 
-		ArduinoConfig.initialize(arduinoIdePath, commandLine.getOptionValue('p'));
-
-		if (commandLine.hasOption('l')) {
-			listBoards(System.out);
+		if (commandLine.hasOption('B')) {
+			ArduinoConfig.listBoards(System.out, false);
 		} else {
 			generateBoard(
 					commandLine.getOptionValue('b'), // board
-					commandLine.getOptionValue('o'));     // without platform file
-		}
-	}
-
-	public static final String ARDUINO_IDE_PROPERTY_NAME = "ARDUINO_IDE";
-
-	// find Arduino IDE main directory
-	// + load arduino-core jar if its classes are not already loaded
-	// returns ide path, or null if not found
-	private static String findIdePathAndClasses(CommandLine commandLine) {
-		String result = null;
-
-		if (commandLine.hasOption('I')) {
-			result = commandLine.getOptionValue('I');
-			logger.debug("found ide path in command line : " + result);
-		} else if (System.getProperties().containsKey(ARDUINO_IDE_PROPERTY_NAME)) {
-			// try in properties
-			result = System.getProperty(ARDUINO_IDE_PROPERTY_NAME);
-			logger.debug("found ide path in properties : " + result);
-		} else {
-			// try in env
-			Map<String, String> env = System.getenv();
-			if (env.containsKey(ARDUINO_IDE_PROPERTY_NAME)) {
-				result = env.get(ARDUINO_IDE_PROPERTY_NAME);
-				logger.debug("found ide path in environment : " + result);
-			}
-		}
-
-		if (result != null) {
-			File absolute = new File(result).getAbsoluteFile();
-			if (!absolute.isDirectory()) {
-				logger.fatal("Arduino IDE directory " + absolute + " not found");
-			}
-			result = absolute.getPath();
-		}
-
-		// look for Arduino IDE classes
-		Class<?> baseClass = null;
-		try {
-			baseClass = processing.app.BaseNoGui.class;
-		} catch (java.lang.NoClassDefFoundError e) {
-			if (result == null) {
-				logger.fatal("Arduino classes not loaded and IDE path not specified");
-				return null;
-			}
-			File coreJar = new File(result, "lib" + File.separatorChar + "arduino-core.jar");
-			if (!coreJar.isFile()) {
-				logger.fatal("Arduino core jar not found in " + coreJar);
-				return null;
-			}
-			try {
-				logger.debug("adding in classpath core jar " + coreJar);
-				ClassPathHacker.addFile(coreJar);
-			} catch (IOException e1) {
-				logger.fatal("Can't add core jar in classpath", e1);
-				return null;
-			}
-			try {
-				baseClass = ClassLoader.getSystemClassLoader().loadClass("processing.app.BaseNoGui");
-//				baseClass = processing.app.BaseNoGui.class;
-				logger.debug("class BaseNoGui found");
-			} catch (/*java.lang.NoClassDefFoundError |*/ ClassNotFoundException e2) {
-				logger.fatal("Can't load arduino core class", e2);
-				return null;
-			}
-		}
-
-		if (result == null) {
-			// now that Arduino main jar is known, deduce IDE path from it
-			URL jarPath = baseClass.getProtectionDomain().getCodeSource().getLocation();
-			try {
-				result = new File(jarPath.toURI().getPath()).getParentFile().getParent();
-				logger.debug("found ide path via BaseNoGui class location : " + result);
-			} catch (URISyntaxException e) {
-				logger.fatal("Weird jar location '" + jarPath + "' ?", e);
-				return null;
-			}
-		}
-
-		return result;
-	}
-
-	protected static void listBoards(PrintStream output) {
-		output.println("Board list (to be specified as a -b argument) :");
-		for(Entry<String, TargetPackage> pkgEntry : ArduinoConfig.packages.entrySet()) {
-			String pkg = pkgEntry.getKey();
-			for(Entry<String, TargetPlatform> pfEntry : pkgEntry.getValue().getPlatforms().entrySet()) {
-				String platform = pfEntry.getKey();
-				for(Entry<String, TargetBoard> bdEntry : pfEntry.getValue().getBoards().entrySet()) {
-					TargetBoard board = bdEntry.getValue();
-					output.println(String.format("  %1$s = %2$s (%3$s:%4$s:%1$s)",
-							board.getId(), board.getName(), pkg, platform));
-				}	
-			}	
-		}
-		output.println("Both syntax (short as in first column) or ':'-separated one" +
-				" (as in parenthesis) are accepted as a -b argument)" +
-				" but output file will use the short one");
-	}
-
-	private static final String USE = "use -l option to list existing ones";
-	protected static TargetBoard setBoard(String boardName) {
-		TargetBoard result = null;
-		String options = null;
-
-		String[] boardComponents = boardName.split(":");
-
-		switch(boardComponents.length) {
-		case 4:
-			options = boardComponents[3];
-			// NO BREAK
-		case 3:
-			{
-				TargetPackage pkg = ArduinoConfig.packages.get(boardComponents[0]);
-				if (pkg == null) {
-					logger.error(String.format("package %s not found, " + USE, boardComponents[0]));
-					return null;
-				}
-				TargetPlatform pf = pkg.get(boardComponents[1]);
-				if (pf == null) {
-					logger.error(String.format("platform %2$s not found in package %1$s, " + USE,
-							boardComponents[0], boardComponents[1]));
-					return null;
-				}
-				result = pf.getBoard(boardComponents[2]);
-				if (result == null || !result.getId().equals(boardComponents[2])) {
-					logger.error(String.format("board %3$s not found in platform %1$s:%2$s" + USE,
-							boardComponents[0], boardComponents[1], boardComponents[2]));
-					return null;
-				}
-			}
-			break;
-
-		case 2:
-			options = boardComponents[1];
-			// NO BREAK
-		case 1:
-			search: for(Entry<String, TargetPackage> pkgEntry : ArduinoConfig.packages.entrySet()) {
-				String pkg = pkgEntry.getKey();
-				for(Entry<String, TargetPlatform> pfEntry : pkgEntry.getValue().getPlatforms().entrySet()) {
-					String platform = pfEntry.getKey();
-					for(Entry<String, TargetBoard> bdEntry : pfEntry.getValue().getBoards().entrySet()) {
-						if (boardName.equals(bdEntry.getKey())) {
-							logger.info(String.format("found board in package %s platform %s", pkg, platform));
-							result = bdEntry.getValue();
-							break search;
-						}
-					}
-				}	
-			}
-			if (result == null) {
-				logger.error("board not found, " + USE);
-				return null;
-			}
-			break;
-
-		default:
-			logger.error("bad board name format (must be [package:platform:]board[:options]");
-			return null;
-		}
-
-		ArduinoConfig.selectBoard(result);
-
-		if (options != null) {
-			setOptions(result, options);
-		}
-
-		return result;
-	}
-
-	protected static void setOptions(TargetBoard board, String optionsString) {
-		String[] options = optionsString.split(",");
-		for (String option : options) {
-			String[] keyValue = option.split("=", 2);
-
-			if (keyValue.length != 2) {
-				logger.error("Invalid option '" + option + "', should be of the form \"name=value\"");
-			}
-			String key = keyValue[0].trim();
-			String value = keyValue[1].trim();
-
-			if (!board.hasMenu(key)) {
-				logger.warn(String.format("Invalid option '%s' for board '%s'", key, board.getId()));
-			}
-			if (board.getMenuLabel(key, value) == null) {
-				logger.warn(String.format("Invalid '%s' option value for board '%s'", key, board.getId()));
-			}
-
-			PreferencesData.set("custom_" + key, board.getId() + "_" + value);
+					commandLine.getOptionValue('o'));// output directory
 		}
 	}
 
@@ -261,9 +61,9 @@ public class MakeMake {
 	}
 
 	protected static void generateBoard(String boardName, String outdir) {
-		TargetBoard board = setBoard(boardName);
+		TargetBoard board = ArduinoConfig.setBoard(boardName);
 		if (board == null) {
-			usage(2);
+			usage(3);
 		}
 		TargetPlatform pf = board.getContainerPlatform();
 		logger.info(String.format("found board %s:%s:%s", pf.getContainerPackage().getId(), pf.getId(), board.getId()));
