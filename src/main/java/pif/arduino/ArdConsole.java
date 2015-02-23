@@ -1,7 +1,13 @@
 package pif.arduino;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+
+import jssc.SerialPort;
+import jssc.SerialPortException;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -10,29 +16,24 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 
-import cc.arduino.packages.BoardPort;
-import cc.arduino.packages.discoverers.SerialDiscovery;
 import pif.arduino.Console.ConsolePeer;
 import pif.arduino.tools.*;
+
+import cc.arduino.packages.BoardPort;
+import cc.arduino.packages.discoverers.SerialDiscovery;
+import cc.arduino.packages.uploaders.SerialUploader;
+import processing.app.PreferencesData;
 import processing.app.debug.TargetBoard;
 
 public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
-	// TODO: cmd line args
-	// -B --boards -> list known boards 
-	// -b --board -> select board
-	// -P --ports -> list ports and try to detect attached boards
-	// -p --port -> connect to this port
-	// -f --file -> input file to scan and upload 
-	// -u --upload -> force upload (if -f specified)
-	// -v -verbose -> set uploader verbosity
-	// associate commands !boards !board ...
-	// command !reconnect !disconnect !upload
 	private static Logger logger = Logger.getLogger(ArdConsole.class);
 
+	static {
+		logger.info("STATIC");
+	}
 	static final short STATE_NONE = 0;
 	static final short STATE_UPLOADING = 1;
-	static final short STATE_CONNECTING = 2;
-	static final short STATE_CONNECTED = 3;
+	static final short STATE_CONNECTED = 2;
 	static final short STATE_FAIL = -1;
 
 	static short state = STATE_NONE;
@@ -57,10 +58,19 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 
 	protected ArduinoConfig.PortBoard port;
 
-	protected String uploadFileName;
+	protected File uploadFile;
 	protected FileScanner scanner;
+	protected SerialUploader uploader;
+
+	// "arduino IDE" serial object
+	protected MySerial serial = null;
+	// link to "real" port to force open/close
+	protected SerialPort serialPort = null;
+
+	protected Console console;
 
 	public static void main(String[] args) {
+		logger.info("MAIN");
 		// -- mandatory option(s)
 		CommandLine commandLine = null;
 		try {
@@ -110,41 +120,37 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 
 	ArdConsole(CommandLine commandLine) {
 		// HERE, we have a p option => try to connect to this port.
-		String portName = commandLine.getOptionValue('p');
-		port = ArduinoConfig.getPortByName(portName);
-		if (port == null) {
-			logger.fatal("Unknown port " + portName);
-			System.exit(4);
-		}
+		setPort(commandLine.getOptionValue('p'));
 
-		TargetBoard board = null;
 		if (commandLine.hasOption('b')) {
-			board = ArduinoConfig.setBoard(commandLine.getOptionValue('b'));
-			if (board == null) {
-				usage(2);
-			}
-			if (port.board != null && port.board != board) {
-				logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
-						port.board.getId(), board.getId()));
-			}
+			setBoard(commandLine.getOptionValue('b'));
 		} else {
 			// if board is not specified, try to detect it
 			if (port.board == null) {
 				logger.fatal("No board specified, and can't auto-detect it");
 				usage(2);
 			} else {
-				board = port.board;
-				ArduinoConfig.setBoard(board);
+				ArduinoConfig.setBoard(port.board);
 			}
 		}
-		// HERE portBoard contains a port address and a board structure, and Arduino preferences are set for this board.
+		// HERE portBoard contains a port address and a board structure, and Arduino preferences are set accordingly.
 		// OK, what do we have to do with this ...
-		
+
+		// set verbosity
+		if (commandLine.hasOption('v')) {
+			PreferencesData.setBoolean("upload.verbose", true);
+		} else {
+			PreferencesData.setBoolean("upload.verbose", false);
+		}
+
+		// establish console
+		console = new Console(this);
+
 		// may be a file to look for
 		if (commandLine.hasOption('f')) {
 			try {
-				uploadFileName = commandLine.getOptionValue('f');
-				scanner = new FileScanner(uploadFileName, this);
+				uploadFile = new File(commandLine.getOptionValue('f'));
+				scanner = new FileScanner(uploadFile, this);
 			} catch (FileNotFoundException e) {
 				usage(2);
 			}
@@ -152,6 +158,8 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 				launchUpload();
 			}
 		}
+		connect();
+		console.start();
 	}
 
 	protected static void usage(int exitCode) {
@@ -164,21 +172,74 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		System.exit(exitCode);
 	}
 
+	protected void setPort(String portName) {
+		port = ArduinoConfig.getPortByName(portName);
+		if (port == null) {
+			logger.fatal("Unknown port " + portName);
+			System.exit(4);
+		}
+		ArduinoConfig.setPort(port);
+	}
+
+	protected void setBoard(String boardName) {
+		TargetBoard board = ArduinoConfig.setBoard(boardName);
+		if (board == null) {
+			usage(2);
+		}
+		if (port.board != null && port.board != board) {
+			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
+					port.board.getId(), board.getId()));
+		}
+	}
+
 	@Override
 	public void onOutgoingData(byte[] data) {
-		// TODO if connected, send data
-		// TODO else send message and abort
+		if (state == STATE_CONNECTED) {
+			serial.write(data);
+		} else {
+			logger.warn("Not connected : can't send data");
+		}
 	}
 
 	@Override
 	public boolean onCommand(String command) {
-		// TODO local commands ...
-		return false;
+		String args = null;
+		int space = command.indexOf(' ');
+		if (space != -1) {
+			args = command.substring(space + 1);
+		}
+
+		if (command.equals("upload") || command.equals("u")) {
+			launchUpload();
+		} else if (command.equals("boards")) {
+			ArduinoConfig.listBoards(System.out, false);
+		} else if (command.equals("board")) {
+			setBoard(args);
+		} else if (command.equals("ports")) {
+			ArduinoConfig.listPorts(System.out);
+		} else if (command.equals("port")) {
+			setPort(args);
+		} else if (command.equals("connect")) {
+			connect();
+		} else if (command.equals("disconnect")) {
+			disconnect();
+		} else {
+			return false;
+		}
+		return true;
 	}
 
 	@Override
 	public void onDisconnect(int status) {
-		// TODO close everything properly
+		while (state == STATE_UPLOADING) {
+			// if uploading, wait it to finish
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {}
+		}
+		if (state == STATE_CONNECTED) {
+			disconnect();
+		}
 	}
 
 	@Override
@@ -186,7 +247,94 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		launchUpload();
 	}
 
+	protected void connect() {
+		// create this object lately because its constructor opens connection
+		// and we want to be able to upload at startup, thus before connection
+		if (serial == null) {
+			try {
+				serial = new MySerial(console);
+				serialPort = new SerialPort(port.address);
+				state = STATE_CONNECTED;
+			} catch (/*processing.app.Serial*/Exception e) {
+				// just specify Exception or jvm crashes on java.lang.NoClassDefFoundError:
+				// at startup.
+				logger.error("Can't connect", e);
+				serial = null;
+				serialPort = null;
+				state = STATE_FAIL;
+			}
+		} else if (state == STATE_NONE) {
+			try {
+				serialPort.openPort();
+				state = STATE_CONNECTED;
+			} catch (SerialPortException e) {
+				logger.error("Can't connect", e);
+				try {
+					serial.dispose();
+				} catch (IOException e1) {
+					// already in fail state -> silently ignore
+				}
+				serial = null;
+				serialPort = null;
+				state = STATE_FAIL;
+			}
+		} else if (state == STATE_CONNECTED) {
+			logger.warn("already connected");
+		} else if (state == STATE_UPLOADING) {
+			logger.warn("Can't connect during upload");
+		}
+	}
+
+	protected void disconnect() {
+		if (state == STATE_CONNECTED) {
+			try {
+				serialPort.closePort();
+				state = STATE_NONE;
+			} catch (SerialPortException e) {
+				logger.error("Can't disconnect", e);
+				try {
+					serial.dispose();
+				} catch (IOException e1) {
+					// already in fail state -> silently ignore
+				}
+				serial = null;
+				serialPort = null;
+				state = STATE_FAIL;
+			}
+		} else {
+			logger.warn("not connected");			
+		}
+	}
+
 	protected void launchUpload() {
-		// TODO
+		if (uploader == null) {
+			uploader = new SerialUploader();
+		}
+		short stateBefore = state;
+		switch(state) {
+		case STATE_UPLOADING: // possible ?
+			logger.warn("Already uploading, abort");
+			return;
+		case STATE_CONNECTED:
+			disconnect();
+			break;
+		case STATE_FAIL:
+		case STATE_NONE:
+			// noop
+		}
+
+		List<String> warnings = new ArrayList<String>();
+		try {
+			uploader.uploadUsingPreferences(uploadFile, null, "noname", false, warnings);
+		} catch (Exception e) {
+			logger.error("Upload failed", e);
+		}
+		for (String line: warnings) {
+			logger.warn(line);
+		}
+
+		if (stateBefore == STATE_CONNECTED) {
+			connect();
+		}
 	}
 }

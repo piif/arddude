@@ -20,8 +20,8 @@ public class FileScanner {
 	public interface FileScanHandler {
 		void onFileChange();
 	}
-	public FileScanner(String fileName, FileScanHandler handler) throws FileNotFoundException {
-		source = new File(fileName);
+	public FileScanner(File file, FileScanHandler handler) throws FileNotFoundException {
+		source = file;
 		if (source.exists()) {
 			logger.debug("Scanning file " + source);
 		} else {

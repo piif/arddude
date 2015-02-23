@@ -158,6 +158,11 @@ public class ArduinoConfig extends BaseNoGui {
 		return null;
 	}
 
+	public static void setPort(PortBoard port) {
+		ArduinoConfig.selectSerialPort(port.address);
+	}
+
+
 	private static final String USE = "use -B option to list existing ones";
 
 	public static void setBoard(TargetBoard board) {
