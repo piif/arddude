@@ -3,8 +3,6 @@
 HERE="$(cd $(dirname $0) ; /bin/pwd)"
 ROOTDIR="$(dirname "$HERE")"
 
-CLASSPATH="$(grep "lib" $ROOTDIR/.classpath |cut -d '"' -f 4|tr '\n' :)$ROOTDIR/bin"
-
 ## force a list of serial names to make rxtx find them
 ## see https://bugs.launchpad.net/ubuntu/+source/rxtx/+bug/367833/comments/6
 options=
