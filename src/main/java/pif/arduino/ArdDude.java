@@ -276,6 +276,16 @@ public class ArdDude implements CommPortOwnershipListener, Console.ConsolePeer {
 			}
 		}
 		// then read avrdude command line
+
+		// next arg must be avrdude path
+		String dudePath = args[i];
+		// remove cygdrive prefix if any
+		if (dudePath.startsWith("/cygdrive/")) {
+			dudePath = dudePath.charAt(10) + ":" + dudePath.substring(11);
+		}
+		commandArgs.add(dudePath);
+		i++;
+		// then look at following args for device, and file to upload
 		for(; i < args.length; i++) {
 			Matcher m;
 			if ((m = PORT_PATTERN.matcher(args[i])).matches()) {
@@ -289,6 +299,7 @@ public class ArdDude implements CommPortOwnershipListener, Console.ConsolePeer {
 			}
 			commandArgs.add(args[i]);
 		}
+
 		// must find port and file path
 		if (portName == null) {
 			System.err.println("Can't find port name in command line");
