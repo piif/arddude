@@ -65,17 +65,17 @@ public class Console extends Thread {
 	 * peer sends data it receives thru this method
 	 */
 	public void onIncomingData(byte data[]) {
-//		logger.debug("Receiving data '" + new String(data) + "'");
 		String toDisplay;
 		switch(displayMode) {
 		case MODE_ASCII:
 			StringBuffer sb = new StringBuffer(data.length);
 			for (int i = 0; i < data.length; i++) {
-				if (data[i] == '\r' || data[i] == '\n' || (data[i] > 32 && data[i] < 128)) {
+				if (data[i] == '\r') {
+					sb.append("\\r");
+				} else if(data[i] == '\n' || (data[i] >= 32 && data[i] < 128)) {
 					sb.append((char)data[i]);
 				} else {
-					sb.append("\\x");
-					sb.append(hexTools.toHex(data[i]));
+					sb.append("\033[7m[" + hexTools.toHex(data[i]) + "]\033[0m");
 				}
 			}
 			toDisplay = sb.toString();
@@ -89,15 +89,13 @@ public class Console extends Thread {
 		try {
 			console.insertString(toDisplay);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error("Couldn't display incoming data", e);
 		}
 	}
 
 	byte outgoingBuffer[] = null;
 
 	void setBuffer(String line) {
-		// TODO hex => translate
 		outgoingBuffer = line.getBytes();
 	}
 
@@ -140,6 +138,12 @@ public class Console extends Thread {
 		// -1 = reading ascii
 		//  1 = waiting for high part of a byte value
 		//  2 = waiting for low part of a byte value
+		// TODO 0d123 => input decimal value
+		// TODO 0w123 or 0w-123 or => word big endian value
+		// TODO 0l123 or 0l-123 => long big endian value
+		// for these options, detect d, w or l when state==1 => state = 3 / 4 / 5
+		// + flag (-3 / -4 / -5 ?) to handle negative value
+		// + must stop on space or quote
 		short state = 1;
 		byte currentByte = 0;
 		for(int i = 0; i < data.length(); i++) {
