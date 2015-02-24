@@ -68,7 +68,7 @@ public class MakeMake {
 		TargetPlatform pf = board.getContainerPlatform();
 		logger.info(String.format("found board %s:%s:%s", pf.getContainerPackage().getId(), pf.getId(), board.getId()));
 
-		File outFile = new File(outdir);
+		File outFile = new File(outdir == null ? "." : outdir);
 		if (outFile.isDirectory()) {
 			outFile = new File(outFile, makefileName(boardName));
 		} else if (!outFile.getParentFile().isDirectory()) {
@@ -103,59 +103,96 @@ public class MakeMake {
 		out.println("%.o: %.c");
 		out.println("\t" + processRecipe(prefs, "recipe.c.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
-				"compiler.c.extra_flags", "${CFLAGS} -x c++",
+				"+compiler.c.extra_flags", "${CFLAGS} -x c++",
 				"source_file", "$<",
 				"object_file", "$@"));
 		out.println("%.o: %.ino");
 		out.println("\t" + processRecipe(prefs, "recipe.cpp.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
-				"compiler.cpp.extra_flags", "${CXXFLAGS} -x c++",
+				"+compiler.cpp.extra_flags", "${CXXFLAGS} -x c++",
 				"source_file", "$<",
 				"object_file", "$@"));
 		out.println("%.o: %.cpp");
 		out.println("\t" + processRecipe(prefs, "recipe.cpp.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
-				"compiler.cpp.extra_flags", "${CXXFLAGS}",
+				"+compiler.cpp.extra_flags", "${CXXFLAGS}",
 				"source_file", "$<",
 				"object_file", "$@"));
 		out.println("%.o: %.S");
-		out.println("\t" + processRecipe(prefs, "recipe.S.o.pattern",
+		String recipe = processRecipe(prefs, "recipe.S.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
-				"compiler.S.extra_flags", "${SFLAGS}",
+				"+compiler.S.extra_flags", "${SFLAGS}",
 				"source_file", "$<",
-				"object_file", "$@"));
+				"object_file", "$@");
+		if (recipe == null) {
+			out.println("\t$(error No rule to compile this kind of file for this target platform)");
+		} else {
+			out.println("\t" + recipe);
+		}
 
 		out.println("\n## generate lib from .o files");
 		out.println("%.a: ${OBJS}");
 		out.println("\t" + processRecipe(prefs, "recipe.ar.pattern",
-				"compiler.ar.extra_flags", "${ARFLAGS}",
+				"+compiler.ar.extra_flags", "${ARFLAGS}",
 				"object_file", "$<", // /!\ without 's'
 				"archive_file", "$@"));
 
 		out.println("\n## generate binary from .o files");
 		out.println("%.elf: ${OBJS}");
-		out.println("\t" + processRecipe(prefs, "recipe.ar.pattern",
-				"compiler.c.elf.extra_flags", "${ELFFLAGS}",
+		out.println("\t" + processRecipe(prefs, "recipe.c.combine.pattern",
+				"+compiler.c.elf.extra_flags", "${ELFFLAGS}",
 				"object_files", "$<", // /!\ with 's'
-				"archive_file", "$@"));
+				"archive_file", "libEmpty.a") + " ${LDFLAGS}");
+		out.println("\n## with a dependency to a fake libEmpty.a since recipe needs it");
+		out.println("${TARGET_DIR}/libEmpty.a:");
+		out.println("\t> ${TARGET_DIR}/libEmpty.a:");
 
-		// TODO
-//		recipe.objcopy.eep.pattern = "{compiler.path}{compiler.objcopy.cmd}" {compiler.objcopy.eep.flags} {compiler.objcopy.eep.extra_flags} "{build.path}/{build.project_name}.elf" "{build.path}/{build.project_name}.eep"
-//		recipe.objcopy.hex.pattern = "{compiler.path}{compiler.elf2hex.cmd}" {compiler.elf2hex.flags} {compiler.elf2hex.extra_flags} "{build.path}/{build.project_name}.elf" "{build.path}/{build.project_name}.hex"
-//		recipe.size.pattern = "{compiler.path}{compiler.size.cmd}" -A "{build.path}/{build.project_name}.elf"
+		out.println("\n## convert binary from .elf");
+		out.println("%.eep:%.elf");
+		out.println("\t" + processRecipe(prefs, "recipe.objcopy.eep.pattern",
+				"+compiler.objcopy.eep.extra_flags", "${EEPFLAGS}",
+				"build.project_name", "$(*F)"));
+
+		out.println("%.hex:%.elf");
+		out.println("\t" + processRecipe(prefs, "recipe.objcopy.hex.pattern",
+				"+compiler.elf2hex.extra_flags", "${HEXFLAGS}",
+				"build.project_name", "$$(*F)"));
+
+		// specific case : generate into a file then "cat" it, to keep a %-like rule
+		out.println("%.size:%.elf");
+		out.println("\t" + processRecipe(prefs, "recipe.size.pattern",
+				"+compiler.size.cmd", " ${SIZEFLAGS}",
+				"build.project_name", "$(*F)") + " > $@");
+		out.println("\tcat $@");
+
+		out.println("\n## entry point for core compilation");
+		out.println("CORE_DIR:=" + prefs.get("build.core.path"));
+		out.println("VARIANT_DIR:=" + prefs.get("build.variant.path"));
 
 		out.println("\n## end of file");
 
 		out.close();
 	}
 
+	/**
+	 * translate template string according to preferences and optional arguments 
+	 * @param prefs preferences map containing strings templates to replace with
+	 * @param recipeName name of template to get from preferences
+	 * @param arguments list of successive key / value pairs specifying specific entry to add in map
+	 * if a key starts with character '+', value is appended to existing map entry if exists, else it replaces its value
+	 * @return translated string
+	 * @throws Exception 
+	 */
 	static String processRecipe(PreferencesMap prefs, String recipeName, String... arguments) {
 	    PreferencesMap dict = new PreferencesMap(prefs);
 	    for(int i = 0; i < arguments.length; i += 2) {
 	    	String key = arguments[i];
 	    	String value = arguments[i + 1];
-	    	if (dict.containsKey(key)) {
-	    		value = dict.get(key) + " " + value;
+	    	if (key.charAt(0) == '+') {
+	    		key = key.substring(1);
+		    	if (dict.containsKey(key)) {
+		    		value = dict.get(key) + " " + value;
+		    	}
 	    	}
 	    	dict.put(key, value);
 	    }
@@ -172,6 +209,7 @@ public class MakeMake {
 	    	}
 	    	return result;
 		} catch (Exception e) {
+//			throw new Exception(e);
 			logger.error("Couldn't process recipe " + recipeName, e);
 		}
 	    return null;

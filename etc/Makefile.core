@@ -1,0 +1,33 @@
+$(info ** ArduinoMakeMaker:Makefile.core for target ${TARGET_BOARD} **)
+
+## verify that ARDUINO_IDE and TARGET_BOARD are defined
+ifeq (${ARDUINO_IDE},)
+  ## TODO : auto discover arduino default install path, according on architecture
+  $(error ARDUINO_IDE is not defined)
+endif
+export ARDUINO_IDE
+ifeq (${TARGET_BOARD},)
+  $(error TARGET_BOARD is not defined)
+endif
+
+## deduce target dir
+TARGET_DIR := target/${TARGET_BOARD}
+${TARGET_DIR}:
+	mkdir -p ${TARGET_DIR}
+
+MAKE_MAKE := etc/mkmk.sh
+
+## look for target specific Makefile, or generate it
+TARGET_MAKEFILE := target/${TARGET_BOARD}/Makefile
+${TARGET_MAKEFILE} : ${TARGET_DIR}
+	${MAKE_MAKE} --board ${TARGET_BOARD} --output ${TARGET_MAKEFILE}
+
+-include ${TARGET_MAKEFILE}
+
+C_SOURCES := $(wildcard ${CORE_DIR}/*.c ${VARIANT_DIR}/*.c)
+CPP_SOURCES := $(wildcard ${CORE_DIR}/*.cpp ${VARIANT_DIR}/*.cpp)
+OBJS := ${C_SOURCES:%.c=%.o} ${CPP_SOURCES:%.cpp=%.o}
+
+${TARGET_DIR}/libCore.a: ${OBJS}
+
+all: ${TARGET_DIR}/libCore.a
