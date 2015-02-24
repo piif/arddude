@@ -9,9 +9,20 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<arduino.ide.basedir>/opt/arduino-1.6.0/</arduino.ide.basedir>
+		<!-- arduino.ide.basedir>/opt/arduino-1.6.0/</arduino.ide.basedir -->
+		<arduino.ide.basedir>C:/DevTools/arduino-1.6.0/</arduino.ide.basedir>
+		<arduino.ide.corejar>${arduino.ide.basedir}/lib/arduino-core.jar</arduino.ide.corejar>
 		<app.main.class>pif.arduino.ArdDude</app.main.class>
 	</properties>
+
+	<profiles>
+		<profile>
+			<id>eclipse</id>
+			<properties>
+				<arduino.ide.corejar>C:/SRC/GitHub/Arduino/arduino-core/arduino-core.jar</arduino.ide.corejar>
+			</properties>
+		</profile>
+	</profiles>
 
 	<build>
 		<plugins>
@@ -99,7 +110,7 @@
 			<artifactId>arduino-core</artifactId>
 			<version>1.6.0</version>
 			<scope>system</scope>
-			<systemPath>${arduino.ide.basedir}/lib/arduino-core.jar</systemPath>
+			<systemPath>${arduino.ide.corejar}</systemPath>
 		</dependency>
         <dependency>
             <groupId>jline</groupId>
