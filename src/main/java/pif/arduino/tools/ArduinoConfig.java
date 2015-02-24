@@ -130,7 +130,10 @@ public class ArduinoConfig extends BaseNoGui {
 	}
 
 	public static List<PortBoard> listPorts() {
-		if (portList == null) {
+		return listPorts(false);
+	}
+	public static List<PortBoard> listPorts(boolean rescan) {
+		if (portList == null || rescan) {
 			Platform os = BaseNoGui.getPlatform();
 			String devicesListOutput = os.preListAllCandidateDevices();
 
@@ -146,10 +149,13 @@ public class ArduinoConfig extends BaseNoGui {
 	}
 
 	public static void listPorts(PrintStream output, boolean raw) {
+		listPorts(output, raw, false);
+	}
+	public static void listPorts(PrintStream output, boolean raw, boolean rescan) {
 		if (!raw) {
 			output.println("Port list (to be specified as a -p argument) :");
 		}
-		for (PortBoard port: listPorts()) {
+		for (PortBoard port: listPorts(rescan)) {
 			if (raw) {
 				output.println(port.address);
 			} else {

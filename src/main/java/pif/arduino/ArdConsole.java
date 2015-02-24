@@ -4,8 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -14,13 +12,13 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 
-import pif.arduino.Console.ConsolePeer;
 import pif.arduino.tools.*;
 import cc.arduino.packages.uploaders.SerialUploader;
 import processing.app.PreferencesData;
+import processing.app.Serial;
 import processing.app.debug.TargetBoard;
 
-public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
+public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHandler {
 	private static Logger logger = Logger.getLogger(ArdConsole.class);
 
 	static final short STATE_NONE = 0;
@@ -58,6 +56,7 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	protected ArduinoConfig.PortBoard port;
 
 	protected File uploadFile;
+	String uploadFilePath, uploadFileName;
 	protected FileScanner scanner;
 	protected SerialUploader uploader;
 
@@ -114,6 +113,15 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 
 		if (commandLine.hasOption('f')) {
 			uploadFile = new File(commandLine.getOptionValue('f'));
+			// upload config waits for a file name specified as : {build.path}/{build.project_name}.hex or .bin
+			// thus, have to split it
+			uploadFilePath = uploadFile.getParent();
+			uploadFileName = uploadFile.getName();
+			if (!uploadFileName.endsWith(".hex") && !uploadFileName.endsWith(".bin")) {
+				logger.error("file to upload must have .hex or .bin extension");
+				System.exit(2);
+			}
+			uploadFileName = uploadFileName.substring(0, uploadFileName.length() - 4);
 		}
 
 		if (commandLine.hasOption('u')) {
@@ -153,7 +161,7 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 				"\narduino ide path is looked for respectivly in command line option, java properties (-DARDUINO_IDE=...)," +
 				" ARDUINO_IDE environment variable, location of BaseNoGui arduino class if already loaded" +
 				" (if classpath was set accordingly for example)";
-		fmt.printHelp(80, "java -jar ArduinoMakeMake.jar options ...", "options :", options, footer);
+		fmt.printHelp(80, "java -jar main_jar_file.jar pif.arduino.ArdConsole options ...", "options :", options, footer);
 		System.exit(exitCode);
 	}
 
@@ -172,7 +180,7 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 			if (port.board != null) {
 				ArduinoConfig.setBoard(port.board);
 			}
-		} else if (!boardName.equals(port.board.getId())) {
+		} else if (port.board != null && !boardName.equals(port.board.getId())) {
 			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
 					port.board.getId(), boardName));
 		}
@@ -181,7 +189,7 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	protected void setBoard(String boardName) {
 		TargetBoard board = ArduinoConfig.setBoard(boardName);
 		if (board == null) {
-			logger.error("Unknown port " + boardName);
+			logger.error("Unknown board " + boardName);
 			return;
 		}
 		if (port != null && port.board != null && port.board != board) {
@@ -216,13 +224,15 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		} else if (command.equals("board")) {
 			setBoard(args);
 		} else if (command.equals("ports")) {
-			ArduinoConfig.listPorts(System.out, rawMode);
+			ArduinoConfig.listPorts(System.out, rawMode, args != null);
 		} else if (command.equals("port")) {
 			setPort(args);
 		} else if (command.equals("connect")) {
 			connect();
 		} else if (command.equals("disconnect")) {
 			disconnect();
+		} else if (command.equals("reset")) {
+			resetPort();
 		} else if (command.equals("status")) {
 			status(System.out);
 		} else {
@@ -249,6 +259,12 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 
 	@Override
 	public void onFileChange() {
+		try {
+			console.insertString("** Change detected in scanned file **");
+		} catch (IOException e) {
+			logger.info("** Change detected in scanned file **");
+			
+		}
 		launchUpload();
 	}
 
@@ -299,6 +315,22 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		}
 	}
 
+	protected void resetPort() {
+		if (portName == null) {
+			logger.error("port was not specified, can't connect");
+			return;
+		}
+		if (state == STATE_CONNECTED) {
+			disconnect();
+		}
+		try {
+			Serial.touchPort(port.address, 1200);
+		} catch (Exception e) {
+			logger.error("port reset failed", e);
+		}
+		connect();
+	}
+
 	protected void status(PrintStream output) {
 		if (port != null) {
 			output.println("Configured to connect on port " + port.address);
@@ -329,6 +361,8 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 			return;
 		}
 
+		logger.info("** launching upload **");
+
 		if (uploader == null) {
 			uploader = new SerialUploader();
 		}
@@ -345,15 +379,16 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 			// noop
 		}
 
-		List<String> warnings = new ArrayList<String>();
+		MessageRenderer warnings = new MessageRenderer(System.out, "[upload]");
+
 		try {
-			uploader.uploadUsingPreferences(uploadFile, null, "noname", false, warnings);
+			uploader.uploadUsingPreferences(uploadFile, uploadFilePath, uploadFileName, false, warnings);
 		} catch (Exception e) {
 			logger.error("Upload failed", e);
 		}
-		for (String line: warnings) {
-			logger.warn(line);
-		}
+//		for (String line: warnings) {
+//			logger.warn(line);
+//		}
 
 		if (stateBefore == STATE_CONNECTED) {
 			connect();

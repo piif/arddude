@@ -136,6 +136,10 @@ public class Console extends Thread {
 		}
 	}
 
+	public void insertString(String str) throws IOException {
+		console.insertString(str);
+	}
+
 	byte outgoingBuffer[] = null;
 
 	void setBuffer(String line) {
