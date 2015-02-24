@@ -11,11 +11,22 @@ if [ "$OSTYPE" = "cygwin" ] ; then
 	JAR=$(cygpath -w "$JAR")
 	options="-cp $JAR"
 
-	## force terminal config and type
+	## force terminal config and type since jline can't do it itself under cygwin
 	options="$options -Djline.terminal=jline.UnixTerminal"
-	stty -icanon min 1 -echo
+	TTY_STATE=$(stty -g)
+	## but only if jline will be used ...
+	IS_RAW=0
+	for a in "$@" ; do
+		if [ "$a" = "-r" -o "$a" = "--raw" ] ; then
+			IS_RAW=1
+			break;
+		fi
+	done
+	if [ $IS_RAW -eq 0 ] ; then
+		stty -icanon min 1 -echo
+	fi
 	"$JAVA" $options $MAIN "$@"
-	stty icanon echo
+	stty $TTY_STATE
 else
 	options="-cp $JAR"
 	exec java $options $MAIN "$@"
