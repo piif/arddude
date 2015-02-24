@@ -3,11 +3,9 @@ package pif.arduino;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
-
-import jssc.SerialPort;
-import jssc.SerialPortException;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -18,7 +16,6 @@ import org.apache.log4j.Logger;
 
 import pif.arduino.Console.ConsolePeer;
 import pif.arduino.tools.*;
-
 import cc.arduino.packages.uploaders.SerialUploader;
 import processing.app.PreferencesData;
 import processing.app.debug.TargetBoard;
@@ -26,9 +23,6 @@ import processing.app.debug.TargetBoard;
 public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	private static Logger logger = Logger.getLogger(ArdConsole.class);
 
-	static {
-		logger.info("STATIC");
-	}
 	static final short STATE_NONE = 0;
 	static final short STATE_UPLOADING = 1;
 	static final short STATE_CONNECTED = 2;
@@ -69,14 +63,10 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 
 	// "arduino IDE" serial object
 	protected MySerial serial = null;
-	// link to "real" port to force open/close
-	protected SerialPort serialPort = null;
 
 	protected Console console;
 
 	public static void main(String[] args) {
-		logger.info("MAIN");
-		// -- mandatory option(s)
 		CommandLine commandLine = null;
 		try {
 			commandLine = new BasicParser().parse(options, args);
@@ -149,21 +139,11 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		}
 
 		// establish console
-		console = new Console(this);
+		console = new Console(this, rawMode);
 
-		// may be a file to look for
-		if (commandLine.hasOption('f')) {
-			try {
-				uploadFile = new File(commandLine.getOptionValue('f'));
-				scanner = new FileScanner(uploadFile, this);
-			} catch (FileNotFoundException e) {
-				usage(2);
-			}
-			if (commandLine.hasOption('u')) {
-				launchUpload();
-			}
+		if (portName != null) {
+			connect();
 		}
-		connect();
 		console.start();
 	}
 
@@ -178,13 +158,24 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	}
 
 	protected void setPort(String portName) {
-		port = ArduinoConfig.getPortByName(portName);
-		if (port == null) {
+		ArduinoConfig.PortBoard newPort = ArduinoConfig.getPortByName(portName);
+		if (newPort == null) {
 			logger.error("Unknown port " + portName);
 			return;
 		}
+		port = newPort;
 		this.portName = portName;
 		ArduinoConfig.setPort(port);
+
+		// if no board selected and port identified one, set it
+		if (boardName == null) {
+			if (port.board != null) {
+				ArduinoConfig.setBoard(port.board);
+			}
+		} else if (!boardName.equals(port.board.getId())) {
+			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
+					port.board.getId(), boardName));
+		}
 	}
 
 	protected void setBoard(String boardName) {
@@ -193,7 +184,7 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 			logger.error("Unknown port " + boardName);
 			return;
 		}
-		if (port.board != null && port.board != board) {
+		if (port != null && port.board != null && port.board != board) {
 			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
 					port.board.getId(), board.getId()));
 		}
@@ -232,6 +223,8 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 			connect();
 		} else if (command.equals("disconnect")) {
 			disconnect();
+		} else if (command.equals("status")) {
+			status(System.out);
 		} else {
 			return false;
 		}
@@ -249,6 +242,9 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		if (state == STATE_CONNECTED) {
 			disconnect();
 		}
+		if (scanner != null) {
+			scanner.stop();
+		}
 	}
 
 	@Override
@@ -264,32 +260,20 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 
 		// create this object lately because its constructor opens connection
 		// and we want to be able to upload at startup, thus before connection
-		if (serial == null) {
+		if (state == STATE_NONE) {
+			// serial must be null
 			try {
 				serial = new MySerial(console);
-				serialPort = new SerialPort(port.address);
 				state = STATE_CONNECTED;
 			} catch (/*processing.app.Serial*/Exception e) {
-				// just specify Exception or jvm crashes on java.lang.NoClassDefFoundError:
-				// at startup.
-				logger.error("Can't connect", e);
-				serial = null;
-				serialPort = null;
-				state = STATE_FAIL;
-			}
-		} else if (state == STATE_NONE) {
-			try {
-				serialPort.openPort();
-				state = STATE_CONNECTED;
-			} catch (SerialPortException e) {
+				// just specify Exception or jvm crashes at startup
+				// with java.lang.NoClassDefFoundError
 				logger.error("Can't connect", e);
 				try {
+					// try to clean up ?
 					serial.dispose();
-				} catch (IOException e1) {
-					// already in fail state -> silently ignore
-				}
+				} catch (IOException e1) {}
 				serial = null;
-				serialPort = null;
 				state = STATE_FAIL;
 			}
 		} else if (state == STATE_CONNECTED) {
@@ -302,25 +286,49 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	protected void disconnect() {
 		if (state == STATE_CONNECTED) {
 			try {
-				serialPort.closePort();
+				serial.dispose();
 				state = STATE_NONE;
-			} catch (SerialPortException e) {
+			} catch (IOException e) {
 				logger.error("Can't disconnect", e);
-				try {
-					serial.dispose();
-				} catch (IOException e1) {
-					// already in fail state -> silently ignore
-				}
-				serial = null;
-				serialPort = null;
 				state = STATE_FAIL;
+			} finally {
+				serial = null;
 			}
 		} else {
 			logger.warn("not connected");			
 		}
 	}
 
+	protected void status(PrintStream output) {
+		if (port != null) {
+			output.println("Configured to connect on port " + port.address);
+			if (boardName != null) {
+				output.println(" as platform " + boardName);
+			}
+		}
+		if (uploadFile != null) {
+			output.println("Scanning file " + uploadFile);
+		}
+		switch(state) {
+		case STATE_NONE:
+		case STATE_FAIL:
+			output.println("Not connected");
+			break;
+		case STATE_UPLOADING:
+			output.println("Uploading code");
+			break;
+		case STATE_CONNECTED:
+			output.println("Connected");
+			break;
+		}
+	}
+
 	protected void launchUpload() {
+		if (portName == null) {
+			logger.error("port was not specified, can't connect");
+			return;
+		}
+
 		if (uploader == null) {
 			uploader = new SerialUploader();
 		}

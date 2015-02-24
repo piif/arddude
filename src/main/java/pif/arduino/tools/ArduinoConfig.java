@@ -156,7 +156,7 @@ public class ArduinoConfig extends BaseNoGui {
 				if (port.board == null) {
 					output.println(String.format("  %s", port.address));
 				} else {
-					output.println(String.format("  %s (identifiad as %s)", port.address, port.board.getName()));
+					output.println(String.format("  %s (identified as %s)", port.address, port.board.getName()));
 				}
 			}
 		}
