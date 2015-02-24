@@ -74,24 +74,31 @@ public class ArduinoConfig extends BaseNoGui {
 	 * @param output
 	 *            stream into which output is sent
 	 */
-	public static void listBoards(PrintStream output, boolean withPidVid) {
-		output.println("Board list (to be specified as a -b argument) :");
+	public static void listBoards(PrintStream output, boolean raw, boolean withPidVid) {
+		if (!raw) {
+			output.println("Board list (to be specified as a -b argument) :");
+		}
 		for (TargetBoard board: listBoards()) {
 			TargetPlatform pf = board.getContainerPlatform();
 			TargetPackage pkg = pf.getContainerPackage();
-			StringBuffer vidPids = new StringBuffer();
-			if (withPidVid) {
-				List<String> vids = new LinkedList<String>(board.getPreferences().subTree("vid").values());
-				if (!vids.isEmpty()) {
-					List<String> pids = new LinkedList<String>(board.getPreferences().subTree("pid").values());
-					for (int i = 0; i < vids.size(); i++) {
-						vidPids.append(" " + vids.get(i) + "/" + pids.get(i));
+			if (raw) {
+				output.println(String.format("%s:%s:%s",
+						board.getId(), pf.getId(), pkg.getId()));
+			} else {
+				StringBuffer vidPids = new StringBuffer();
+				if (withPidVid) {
+					List<String> vids = new LinkedList<String>(board.getPreferences().subTree("vid").values());
+					if (!vids.isEmpty()) {
+						List<String> pids = new LinkedList<String>(board.getPreferences().subTree("pid").values());
+						for (int i = 0; i < vids.size(); i++) {
+							vidPids.append(" " + vids.get(i) + "/" + pids.get(i));
+						}
 					}
 				}
+				output.println(String.format(
+						"  %1$s = %2$s (%3$s:%4$s:%1$s)%5$s",
+						board.getId(), board.getName(), pf.getId(), pkg.getId(), vidPids));
 			}
-			output.println(String.format(
-					"  %1$s = %2$s (%3$s:%4$s:%1$s)%5$s",
-					board.getId(), board.getName(), pf.getId(), pkg.getId(), vidPids));
 		}
 	}
 
@@ -138,13 +145,19 @@ public class ArduinoConfig extends BaseNoGui {
 		return portList;
 	}
 
-	public static void listPorts(PrintStream output) {
-		output.println("Port list (to be specified as a -p argument) :");
+	public static void listPorts(PrintStream output, boolean raw) {
+		if (!raw) {
+			output.println("Port list (to be specified as a -p argument) :");
+		}
 		for (PortBoard port: listPorts()) {
-			if (port.board == null) {
-				output.println(String.format("  %s", port.address));
+			if (raw) {
+				output.println(port.address);
 			} else {
-				output.println(String.format("  %s (identifiad as %s)", port.address, port.board.getName()));
+				if (port.board == null) {
+					output.println(String.format("  %s", port.address));
+				} else {
+					output.println(String.format("  %s (identifiad as %s)", port.address, port.board.getName()));
+				}
 			}
 		}
 	}

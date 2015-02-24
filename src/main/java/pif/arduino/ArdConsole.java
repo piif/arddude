@@ -19,8 +19,6 @@ import org.apache.log4j.Logger;
 import pif.arduino.Console.ConsolePeer;
 import pif.arduino.tools.*;
 
-import cc.arduino.packages.BoardPort;
-import cc.arduino.packages.discoverers.SerialDiscovery;
 import cc.arduino.packages.uploaders.SerialUploader;
 import processing.app.PreferencesData;
 import processing.app.debug.TargetBoard;
@@ -54,8 +52,15 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		options.addOption("f", "file", true, "file to scan / upload");
 		options.addOption("u", "upload", false, "launch upload at startup");
 		options.addOption("v", "verbose", false, "set upload verbosity");
+
+		options.addOption("x", "exit", false, "exit after dump commands instead of launching console");
+		options.addOption("r", "raw", false, "raw mode : dumps list only ids, console is raw, without history nor editing facilities");
+
 	}
 
+	protected static boolean rawMode = false;
+
+	protected String boardName, portName;
 	protected ArduinoConfig.PortBoard port;
 
 	protected File uploadFile;
@@ -87,60 +92,60 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 			usage(2);
 		}
 
-		if (commandLine.hasOption('P')) {
-		    System.out.println("Port list (to be specified as a -p argument) :");
+		if (commandLine.hasOption('r')) {
+			rawMode = true;
+		}
 
-			SerialDiscovery sd = new SerialDiscovery();
-			List<BoardPort> ports = sd.discovery();
-			for (BoardPort entry: ports) {
-				if (entry.getBoardName() != null) {
-					System.out.println(String.format("  %s (identified as '%s')", entry.getAddress(), entry.getBoardName()));
-				} else {
-					System.out.println(String.format("  %s", entry.getAddress()));
-				}
-			}
+		if (commandLine.hasOption('P')) {
+			ArduinoConfig.listPorts(System.out, rawMode);
 		}
 		if (commandLine.hasOption('B')) {
-			ArduinoConfig.listBoards(System.out, false);
+			ArduinoConfig.listBoards(System.out, rawMode, false);
 		}
-
-		if (!commandLine.hasOption('p')) {
-			if (commandLine.hasOption('B') || commandLine.hasOption('P')) {
-				// user just asked to dump boards / ports -> stop here.
-				System.exit(0);
-			} else {
-				// nothing to do -> send usage
-				usage(0);
-			}
-		}
-
-		// ok, it will become a bit more complicated, pass to a instance...
-		new ArdConsole(commandLine);
-	}
-
-	ArdConsole(CommandLine commandLine) {
-		// HERE, we have a p option => try to connect to this port.
-		setPort(commandLine.getOptionValue('p'));
-
-		if (commandLine.hasOption('b')) {
-			setBoard(commandLine.getOptionValue('b'));
-		} else {
-			// if board is not specified, try to detect it
-			if (port.board == null) {
-				logger.fatal("No board specified, and can't auto-detect it");
-				usage(2);
-			} else {
-				ArduinoConfig.setBoard(port.board);
-			}
-		}
-		// HERE portBoard contains a port address and a board structure, and Arduino preferences are set accordingly.
-		// OK, what do we have to do with this ...
 
 		// set verbosity
 		if (commandLine.hasOption('v')) {
 			PreferencesData.setBoolean("upload.verbose", true);
 		} else {
 			PreferencesData.setBoolean("upload.verbose", false);
+		}
+
+		// ok, it will become a bit more complicated, pass to an instance...
+		new ArdConsole(commandLine);
+	}
+
+	ArdConsole(CommandLine commandLine) {
+		if (commandLine.hasOption('p')) {
+			setPort(commandLine.getOptionValue('p'));
+		}
+		if (commandLine.hasOption('b')) {
+			setBoard(commandLine.getOptionValue('b'));
+		}
+
+		if (commandLine.hasOption('f')) {
+			uploadFile = new File(commandLine.getOptionValue('f'));
+		}
+
+		if (commandLine.hasOption('u')) {
+			if (uploadFile == null) {
+				logger.error("Can't upload : no file specified (-f option)");
+				usage(2);
+			} else {
+				launchUpload();
+			}
+		}
+
+		if (commandLine.hasOption('x')) {
+			System.exit(0);
+		}
+
+		try {
+			if (uploadFile != null) {
+				scanner = new FileScanner(uploadFile, this);
+			}
+		} catch (FileNotFoundException e) {
+			logger.error("File to upload doesn't exists");
+			usage(2);
 		}
 
 		// establish console
@@ -175,21 +180,24 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	protected void setPort(String portName) {
 		port = ArduinoConfig.getPortByName(portName);
 		if (port == null) {
-			logger.fatal("Unknown port " + portName);
-			System.exit(4);
+			logger.error("Unknown port " + portName);
+			return;
 		}
+		this.portName = portName;
 		ArduinoConfig.setPort(port);
 	}
 
 	protected void setBoard(String boardName) {
 		TargetBoard board = ArduinoConfig.setBoard(boardName);
 		if (board == null) {
-			usage(2);
+			logger.error("Unknown port " + boardName);
+			return;
 		}
 		if (port.board != null && port.board != board) {
 			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
 					port.board.getId(), board.getId()));
 		}
+		this.boardName = boardName;
 	}
 
 	@Override
@@ -207,16 +215,17 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 		int space = command.indexOf(' ');
 		if (space != -1) {
 			args = command.substring(space + 1);
+			command = command.substring(0, space);
 		}
 
 		if (command.equals("upload") || command.equals("u")) {
 			launchUpload();
 		} else if (command.equals("boards")) {
-			ArduinoConfig.listBoards(System.out, false);
+			ArduinoConfig.listBoards(System.out, rawMode, false);
 		} else if (command.equals("board")) {
 			setBoard(args);
 		} else if (command.equals("ports")) {
-			ArduinoConfig.listPorts(System.out);
+			ArduinoConfig.listPorts(System.out, rawMode);
 		} else if (command.equals("port")) {
 			setPort(args);
 		} else if (command.equals("connect")) {
@@ -248,6 +257,11 @@ public class ArdConsole implements ConsolePeer, FileScanner.FileScanHandler {
 	}
 
 	protected void connect() {
+		if (portName == null) {
+			logger.error("port was not specified, can't connect");
+			return;
+		}
+
 		// create this object lately because its constructor opens connection
 		// and we want to be able to upload at startup, thus before connection
 		if (serial == null) {

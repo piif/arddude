@@ -1,6 +1,8 @@
 package pif.arduino;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Arrays;
 
 import org.apache.log4j.Logger;
@@ -20,7 +22,9 @@ import pif.arduino.tools.hexTools;
  */
 public class Console extends Thread {
 	Logger logger = Logger.getLogger(Console.class);
+
 	protected ConsolePeer peer;
+	protected boolean raw = false;
 
 	static public final String PROMPT = "> ";
 	/*
@@ -48,11 +52,50 @@ public class Console extends Thread {
 	}
 
 	public Console(ConsolePeer peer) {
+		this(peer, false);
+	}
+
+	public Console(ConsolePeer peer, boolean raw) {
+		this.raw = raw;
 		this.peer = peer;
 	}
 
-	// jline console where incoming data are displayed and command input comes from
-	JlineConsole console;
+	/**
+	 *  console where incoming data are displayed and command input comes from
+	 *  wraps JLineConsole or System.in/out according to raw mode
+	 */
+	protected class MyConsole {
+		// jline version if not raw
+		JlineConsole jline;
+		// input if raw mode
+		BufferedReader input;
+
+		public MyConsole(boolean raw) throws IOException {
+			if (raw) {
+				input = new BufferedReader(new InputStreamReader(System.in));
+			} else {
+				jline = new JlineConsole();
+				jline.setHistoryEnabled(true);
+				jline.setExpandEvents(false);
+				jline.setPrompt(PROMPT);
+			}
+		}
+		public String readLine() throws IOException {
+			if (raw) {
+				return input.readLine();
+			} else {
+				return jline.readLine();
+			}
+		}
+		public void insertString(String str) throws IOException {
+			if (raw) {
+				System.out.print(str);
+			} else {
+				jline.insertString(str);
+			}
+		}
+	}
+	protected MyConsole console;
 
 	// current display mode
 	static final byte MODE_RAW   = 0;
@@ -210,10 +253,7 @@ public class Console extends Thread {
 
 	public void run() {
 		try {
-			console = new JlineConsole();
-			console.setHistoryEnabled(true);
-			console.setExpandEvents(false);
-			console.setPrompt(PROMPT);
+			console = new MyConsole(raw);
 		} catch (IOException e) {
 			logger.error("Can't initialize console", e);
 			peer.onDisconnect(1);
@@ -226,7 +266,7 @@ public class Console extends Thread {
 			while((inputLine = console.readLine()) != null) {
 				try {
 					if ("!exit".equals(inputLine)) {
-						logger.info("Exit console");
+						logger.debug("Exit console");
 						peer.onDisconnect(0);
 						return;
 					} else if (inputLine.length() > 0 && inputLine.charAt(0) == '!') {
@@ -252,7 +292,7 @@ public class Console extends Thread {
 //					e.printStackTrace();
 				}
 			}
-			logger.info("EOF");
+			logger.debug("EOF");
 			peer.onDisconnect(0);
 		} catch (IOException e) {
 			logger.error("Exception with input, cancelling console", e);

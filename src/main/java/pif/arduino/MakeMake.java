@@ -48,7 +48,7 @@ public class MakeMake {
 		}
 
 		if (commandLine.hasOption('B')) {
-			ArduinoConfig.listBoards(System.out, false);
+			ArduinoConfig.listBoards(System.out, false, false);
 		} else {
 			generateBoard(
 					commandLine.getOptionValue('b'), // board
