@@ -15,6 +15,7 @@ public class FileScanner {
 	protected File source;
 	protected FileScanHandler handler;
 
+	protected Timer timer;
 	protected long lastMod;
 
 	public interface FileScanHandler {
@@ -32,14 +33,18 @@ public class FileScanner {
 		this.handler = handler;
 
 		// scan file every 2 seconds
-		Timer t = new Timer();
+		timer = new Timer();
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
 				scanFile();
 			}
 		};
-		t.schedule(task, 0, 2000);
+		timer.schedule(task, 0, 2000);
+	}
+
+	public void stop() {
+		timer.cancel();
 	}
 
 	protected void scanFile() {
