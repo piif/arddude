@@ -22,6 +22,3 @@ include $(AMM_DIR)/etc/Makefile.main
 
 ## after this inclusion, we may add some stuff like our include path
 INCLUDE_FLAGS += -Ilibraries
-
-## TODO exclude some libs ?
-## = filter-out some entries from OBJS ?

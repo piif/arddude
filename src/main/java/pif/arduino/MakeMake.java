@@ -126,6 +126,12 @@ public class MakeMake {
 		helper.recipe2var("AS", "{compiler.path}{compiler.c.cmd}");
 		helper.pref2varAndSet("ASFLAGS", "compiler.S.flags");
 
+		String targetFlags = helper.recipe("recipe.cpp.o.pattern",
+				"compiler.cpp.flags", "<<<BEGIN>>>",
+				"compiler.cpp.extra_flags", "<<<END>>>");
+		targetFlags = targetFlags.replaceFirst("^.*<<<BEGIN>>>(.*)<<<END>>>.*$", "$1");
+		helper.raw2var("DISCOVERY_FLAGS", targetFlags);
+
 		// target specific flags are into recipe itself and not in cflags definition
 		// => have to generate a full rule
 		out.println("\n## generate code from c, cpp, ino or S files");

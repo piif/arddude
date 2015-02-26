@@ -85,4 +85,10 @@ upload: ${OUT_PATH}
 ${CORE_LIB}:
 	${MAKE} -C ${MAKE_MAKE_DIR} -f etc/Makefile.core ARDUINO_IDE="${ARDUINO_IDE}"
 
-.PHONY: bin lib dependencies corelib upload console
+.PHONY: bin lib dependencies corelib upload console discovery
+
+# rules to let eclipse discover constants and includes
+discovery: CMD_BUT_LAST := $(filter-out $(lastword ${CMD}),${CMD})
+discovery: CMD_LAST := $(lastword ${CMD})
+discovery:
+	${CMD_BUT_LAST} ${CXXFLAGS} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST}
