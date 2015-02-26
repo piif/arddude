@@ -1,33 +1,25 @@
-$(info ** ArduinoMakeMaker:Makefile.core for target ${TARGET_BOARD} **)
+default: all
 
-## verify that ARDUINO_IDE and TARGET_BOARD are defined
-ifeq (${ARDUINO_IDE},)
-  ## TODO : auto discover arduino default install path, according on architecture
-  $(error ARDUINO_IDE is not defined)
-endif
-export ARDUINO_IDE
-ifeq (${TARGET_BOARD},)
-  $(error TARGET_BOARD is not defined)
-endif
+# must define those variables with = instead of :=, and before Makefile.common inclusion
+# => when Makefile.common include in turn target/../Makefile, ${OBJS} (used as a prerequisite) will be defined.
+# must '=' since CORE_DIR will be defined later
+SOURCES_DIR = ${CORE_DIR} ${VARIANT_DIR}
+C_SOURCES = $(call rwildcard,${SOURCES_DIR},*.c)
+CPP_SOURCES = $(call rwildcard,${SOURCES_DIR},*.cpp)
+OBJS = ${C_SOURCES:${HARDWARE_DIR}/%.c=${TARGET_DIR}/%.o} ${CPP_SOURCES:${HARDWARE_DIR}/%.cpp=${TARGET_DIR}/%.o}
 
-## deduce target dir
-TARGET_DIR := target/${TARGET_BOARD}
-${TARGET_DIR}:
-	mkdir -p ${TARGET_DIR}
+MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
+include ${MAKE_MAKE_DIR}/etc/Makefile.common
 
-MAKE_MAKE := etc/mkmk.sh
-
-## look for target specific Makefile, or generate it
-TARGET_MAKEFILE := target/${TARGET_BOARD}/Makefile
-${TARGET_MAKEFILE} : ${TARGET_DIR}
-	${MAKE_MAKE} --board ${TARGET_BOARD} --output ${TARGET_MAKEFILE}
-
--include ${TARGET_MAKEFILE}
-
-C_SOURCES := $(wildcard ${CORE_DIR}/*.c ${VARIANT_DIR}/*.c)
-CPP_SOURCES := $(wildcard ${CORE_DIR}/*.cpp ${VARIANT_DIR}/*.cpp)
-OBJS := ${C_SOURCES:%.c=%.o} ${CPP_SOURCES:%.cpp=%.o}
+$(info CORE_LIB=${CORE_LIB} in ${CORE_LIB_DIR})
+$(info OBJS=${OBJS})
+all: ${TARGET_DIR}/libCore.a | ${TARGET_DIR}
 
 ${TARGET_DIR}/libCore.a: ${OBJS}
 
-all: ${TARGET_DIR}/libCore.a
+#vpath %.o   ${TARGET_DIR}
+
+#VPATH = ${HARDWARE_DIR}
+vpath %.cpp ${HARDWARE_DIR}
+vpath %.c   ${HARDWARE_DIR}
+vpath %.S   ${HARDWARE_DIR}

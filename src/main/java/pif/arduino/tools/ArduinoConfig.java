@@ -17,6 +17,7 @@ import processing.app.Serial;
 import processing.app.debug.TargetBoard;
 import processing.app.debug.TargetPackage;
 import processing.app.debug.TargetPlatform;
+import processing.app.helpers.PreferencesMap;
 
 public class ArduinoConfig extends BaseNoGui {
 	private static Logger logger = Logger.getLogger(ArduinoConfig.class);
@@ -48,6 +49,22 @@ public class ArduinoConfig extends BaseNoGui {
 
 		// now that sketchbook path is defined, specific hardware specified in it will be found
 		initPackages();
+	}
+
+	static public void changePathSeparators(PreferencesMap prefs) {
+		// do something only under windows
+	    if (System.getProperty("os.name").indexOf("Windows") == -1) {
+	    	return;
+	    }
+
+		for (String key : prefs.keySet()) {
+			if (key.endsWith(".path")) {
+				String value = prefs.get(key);
+				if (value != null) {
+					prefs.put(key, value.replace('\\', '/'));
+				}
+			}
+		}
 	}
 
 	private static List<TargetBoard> boardList = null;

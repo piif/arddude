@@ -1,0 +1,74 @@
+## TODO if BOARD specified and target makefile already exists, IDE path is in it
+
+## verify that ARDUINO_IDE and TARGET_BOARD are defined
+ifeq (${ARDUINO_IDE},)
+  ## TODO : auto discover arduino default install path, according on architecture
+  $(error ARDUINO_IDE is not defined)
+endif
+ifeq (${TARGET_BOARD},)
+  $(error TARGET_BOARD is not defined)
+endif
+
+# thank to http://stackoverflow.com/questions/3774568/makefile-issue-smart-way-to-scan-directory-tree-for-c-files
+# Make does not offer a recursive wildcard function, so here's one:
+#rwildcard=$(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2))
+rwildcard=$(wildcard $(addsuffix $2, $1)) $(foreach d,$(wildcard $(addsuffix *, $1)),$(call rwildcard,$d/,$2))
+
+# default current dir to here
+CALLER_DIR ?= ./
+
+override ARDUINO_IDE := $(realpath ${ARDUINO_IDE})
+
+export MKDIR
+MKDIR ?= mkdir -p
+
+MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.sh -I ${JAVA_ARDUINO_IDE} ${MAKE_MAKE_FLAGS}
+ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.sh -I ${JAVA_ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
+
+ifneq ($(OS),Windows_NT)
+  JAVA_ARDUINO_IDE := ${ARDUINO_IDE}
+else
+  ## under windows, java waits for dos-like pathes, but avr-gcc waits for cygwin-like pathes
+  ## thus, we have to change ARDUINO_IDE variable in 2 versions :
+  ## default one with /cygdrive/... and short one without it
+  # realpath function in cygwin version of make converts path in /cygdrive/.. format => OK.
+
+  ifneq ($(findstring CYGWIN,$(shell uname)),)
+    JAVA_ARDUINO_IDE := $(shell cygpath -m -w ${ARDUINO_IDE})
+  else
+    # but out of cygwin, cygpath command doesn't exists => have to hack it
+    _drive:=$(word 2,$(subst /, ,${ARDUINO_IDE}))
+    _prefix:=/cygdrive/${_drive}
+    JAVA_ARDUINO_IDE := ${_drive}:$(subst ${_prefix},,${ARDUINO_IDE})
+
+	# and redefine some common commands
+	MKDIR ?= mkdir
+
+	MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.bat -I ${JAVA_ARDUINO_IDE} ${MAKE_MAKE_FLAGS}
+	ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.bat -I ${JAVA_ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
+
+  endif
+endif
+
+## deduce target dir
+TARGET_DIR := ${CALLER_DIR}target/${TARGET_BOARD}
+# avoid weird pather when calling from "."
+TARGET_DIR := ${TARGET_DIR:./%=%}
+
+## and core lib
+CORE_LIB_DIR := $(realpath ${MAKE_MAKE_DIR}/target/${TARGET_BOARD})
+CORE_LIB := ${CORE_LIB_DIR}/libCore.a
+
+$(info MKDIR=${MKDIR})
+${TARGET_DIR}:
+	${MKDIR} ${TARGET_DIR}
+
+${MAKE_MAKE_DIR}/target/${TARGET_BOARD}:
+	-${MKDIR} ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}
+
+## look for target specific Makefile, or generate it
+TARGET_MAKEFILE := ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}/Makefile
+${TARGET_MAKEFILE} : | ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}
+	${MAKE_MAKE} --board ${TARGET_BOARD} --output ${TARGET_MAKEFILE}
+
+-include ${TARGET_MAKEFILE}
