@@ -1,25 +1,26 @@
 default: all
 
+MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
+include ${MAKE_MAKE_DIR}/etc/Makefile.tools
+
 # must define those variables with = instead of :=, and before Makefile.common inclusion
 # => when Makefile.common include in turn target/../Makefile, ${OBJS} (used as a prerequisite) will be defined.
 # must '=' since CORE_DIR will be defined later
-SOURCES_DIR = ${CORE_DIR} ${VARIANT_DIR}
-C_SOURCES = $(call rwildcard,${SOURCES_DIR},*.c)
-CPP_SOURCES = $(call rwildcard,${SOURCES_DIR},*.cpp)
-OBJS = ${C_SOURCES:${HARDWARE_DIR}/%.c=${TARGET_DIR}/%.o} ${CPP_SOURCES:${HARDWARE_DIR}/%.cpp=${TARGET_DIR}/%.o}
+SOURCE_DIRS = ${CORE_DIR} ${VARIANT_DIR}
+ALL_SOURCES = $(foreach d,${SOURCE_DIRS},$(wildcard $d/*.c) $(wildcard $d/*.cpp))
+OBJS = $(addsuffix .o,$(basename ${ALL_SOURCES:${HARDWARE_DIR}/%=${TARGET_DIR}/%}))
 
-MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 include ${MAKE_MAKE_DIR}/etc/Makefile.common
 
-$(info CORE_LIB=${CORE_LIB} in ${CORE_LIB_DIR})
-$(info OBJS=${OBJS})
+#$(info core : CORE_LIB=${CORE_LIB} in ${CORE_LIB_DIR})
+#$(info core : TARGET_DIR=${TARGET_DIR})
+#$(info core : OBJS=${OBJS})
 all: ${TARGET_DIR}/libCore.a | ${TARGET_DIR}
 
 ${TARGET_DIR}/libCore.a: ${OBJS}
 
-#vpath %.o   ${TARGET_DIR}
+#$(info HARDWARE_DIR=${HARDWARE_DIR})
 
-#VPATH = ${HARDWARE_DIR}
 vpath %.cpp ${HARDWARE_DIR}
 vpath %.c   ${HARDWARE_DIR}
 vpath %.S   ${HARDWARE_DIR}

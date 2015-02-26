@@ -1,56 +1,73 @@
 default: console
 
-## little hack to avoid troubles with cygwin pathes
-ifeq ($(findstring CYGWIN,$(shell uname)),)
-  cygpath ?= ${1}
-else
-  cygpath = $(shell cygpath -m -w ${1})
-endif
+MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
+include ${MAKE_MAKE_DIR}/etc/Makefile.tools
 
-## MAKEFILE_LIST n-1'th item is caller Makefile => deduce caller project dir
-##CALLER_DIR := $(call cygpath,$(dir $(realpath $(lastword $(filter-out $(lastword ${MAKEFILE_LIST}),${MAKEFILE_LIST})))))
-CALLER_DIR := $(dir $(lastword $(filter-out $(lastword ${MAKEFILE_LIST}),${MAKEFILE_LIST})))
-
-# must define those variables with = instead of :=, and before Makefile.common inclusion
-# => when Makefile.common include in turn target/../Makefile, ${OBJS} (used as a prerequisite) will be defined.
-C_SOURCES = $(call rwildcard,${CALLER_DIR},*.c)
-CPP_SOURCES = $(call rwildcard,${CALLER_DIR},*.cpp)
-INO_SOURCES = $(call rwildcard,${CALLER_DIR},*.ino)
-OBJS = ${C_SOURCES:${CALLER_DIR}%.c=${TARGET_DIR}/%.o} ${CPP_SOURCES:${CALLER_DIR}%.cpp=${TARGET_DIR}/%.o} ${INO_SOURCES:${CALLER_DIR}%.ino=${TARGET_DIR}/%.o}
-
-
-MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))/../
-include ${MAKE_MAKE_DIR}/etc/Makefile.common
+## all *_DIR variables must contain absolute path names without trailing /
+ 
+## MAKEFILE_LIST 1st item is first caller Makefile => deduce caller project dir
+CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
+#$(info main : CALLER_DIR=${CALLER_DIR})
 
 ## PROJECT_NAME may be already defined, else, use project dirname
-PROJECT_NAME ?= $(notdir $(realpath ${CALLER_DIR}))
+PROJECT_NAME ?= $(notdir ${CALLER_DIR})
 
-## deduce in and out file names
-ifeq (${TODO},lib)
-  OUT_NAME ?= lib${PROJECT_NAME}.a
+SOURCE_EXCLUDES += target/%
+
+ifeq (${SOURCE_DIRS},)
+  SOURCE_DIRS := $(call rsubdirs,${CALLER_DIR})
+endif
+ifneq (${SOURCE_EXCLUDES},)
+  SOURCE_EXCLUDES := $(foreach d,${SOURCE_EXCLUDES},$(call truepath,$d))
+  SOURCE_DIRS := $(filter-out ${SOURCE_EXCLUDES},${SOURCE_DIRS})
+endif
+#$(info main : SOURCE_DIRS=${SOURCE_DIRS})
+
+## by default, look for a main source file with project name or "main" as basename 
+## but user may define SOURCES_DIR=libraries/ + MAIN_SOURCE=subProject/subProject.ino
+ifeq (${MAIN_SOURCE},)
+  MAIN_SOURCE = $(wildcard \
+		${CALLER_DIR}/${PROJECT_NAME}.ino ${CALLER_DIR}/main.ino \
+		${CALLER_DIR}/${PROJECT_NAME}.cpp ${CALLER_DIR}/main.cpp \
+		${CALLER_DIR}/${PROJECT_NAME}.c ${CALLER_DIR}/main.c)
+  OUT_NAME = ${PROJECT_NAME}
 else
-  MAIN_SOURCE ?= $(wildcard ${CALLER_DIR}/${PROJECT_NAME}.ino ${CALLER_DIR}/${PROJECT_NAME}.cpp ${CALLER_DIR}/${PROJECT_NAME}.c \
-		${CALLER_DIR}/main.ino ${CALLER_DIR}/main.cpp ${CALLER_DIR}/main.c)
-
-  ifeq (${MAIN_SOURCE},)
-    $(error Can't find main destination file. Caller must specify which one to use (MAIN_SOURCE=...))
-  endif
-  ifneq ($(words ${MAIN_SOURCE}),1)
-    $(error Several files may be destination. Caller must specify which one to use (MAIN_SOURCE=...))
-  endif
-
-  OUT_NAME ?= $(notdir $(basename ${MAIN_SOURCE})).hex
+  OUT_NAME = $(notdir $(basename ${MAIN_SOURCE}))
+  MAIN_SOURCE := ${CALLER_DIR}/${MAIN_SOURCE}
 endif
 
-OUT_PATH := ${TARGET_DIR}/${OUT_NAME}
-$(info MAIN_SOURCE=${MAIN_SOURCE})
-$(info OUT_PATH=${OUT_PATH})
-$(info INCLUDE_FLAGS=${INCLUDE_FLAGS})
+# call $sort to avoid duplicates between MAIN_SOURCE and found sources
+ALL_SOURCES := $(sort ${MAIN_SOURCE} $(foreach d,${SOURCE_DIRS},$(wildcard $d/*.c) $(wildcard $d/*.cpp) $(wildcard $d/*.ino)))
+#$(info main : ALL_SOURCES=${ALL_SOURCES})
+# must define this variable with = instead of :=, and before Makefile.common inclusion
+# => when Makefile.common will include target/../Makefile, ${OBJS} (used as a prerequisite) will be fully defined
+# despite the TARGET_DIR which is defined into Makefile.common
+OBJS = $(addsuffix .o,$(basename ${ALL_SOURCES:${CALLER_DIR}/%=${TARGET_DIR}/%}))
 
-LDFLAGS := ${LDFLAGS} -L${CORE_LIB_DIR} -lCore
+## ok .. basic variables are defined, we can call common makefile
 
-bin: ${OUT_PATH} ${OUT_PATH:%.hex=%.size} | ${TARGET_DIR}
+#MAKE_MAKE_DIR := $(call truepath,$(dir $(lastword ${MAKEFILE_LIST}))..)
+include ${MAKE_MAKE_DIR}/etc/Makefile.common
+
+## now, main target dir and core libs one are known
+
+#$(info main : TARGET_DIR=${TARGET_DIR})
+
+## deduce out file name
+ifeq (${TODO},lib)
+  OUT_PATH := ${TARGET_DIR}/lib${OUT_NAME}.a
+else
+  OUT_PATH := ${TARGET_DIR}/${OUT_NAME}.hex
+endif
+
+#$(info main : OUT_PATH=${OUT_PATH})
+
+LDFLAGS += -L${CORE_LIB_DIR} -lCore
+#TODO size
+bin: ${OUT_PATH} | ${TARGET_DIR}
 lib: ${OUT_PATH} | ${TARGET_DIR}
+
+${OUT_PATH}: ${CORE_LIB} ${DEPENDENCIES}
 
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
@@ -65,9 +82,7 @@ consoleFlag: ${OUT_PATH}
 upload: ${OUT_PATH}
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} -u -x
 
-${OUT_PATH}: ${CORE_LIB} ${DEPENDENCIES}
-
 ${CORE_LIB}:
-	${MAKE} -C ${MAKE_MAKE_DIR} -f etc/Makefile.core
+	${MAKE} -C ${MAKE_MAKE_DIR} -f etc/Makefile.core ARDUINO_IDE="${ARDUINO_IDE}"
 
 .PHONY: bin lib dependencies corelib upload console
