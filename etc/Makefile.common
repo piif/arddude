@@ -3,6 +3,7 @@
 ## verify that ARDUINO_IDE and TARGET_BOARD are defined
 ifeq (${ARDUINO_IDE},)
   ## TODO : auto discover arduino default install path, according on architecture
+  ## -> ${ProgramFiles(x86)}/arduino ?
   $(error ARDUINO_IDE is not defined)
 endif
 ifeq (${TARGET_BOARD},)
@@ -19,8 +20,7 @@ CALLER_DIR ?= ./
 
 override ARDUINO_IDE := $(realpath ${ARDUINO_IDE})
 
-export MKDIR
-MKDIR ?= mkdir -p
+export MKDIR ?= mkdir -p
 
 MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.sh -I ${JAVA_ARDUINO_IDE} ${MAKE_MAKE_FLAGS}
 ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.sh -I ${JAVA_ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
@@ -32,6 +32,9 @@ else
   ## thus, we have to change ARDUINO_IDE variable in 2 versions :
   ## default one with /cygdrive/... and short one without it
   # realpath function in cygwin version of make converts path in /cygdrive/.. format => OK.
+
+  ## manage to avoid warning from make,avr-gcc and other cygwin binaries
+  export CYGWIN=nodosfilewarning
 
   ifneq ($(findstring CYGWIN,$(shell uname)),)
     JAVA_ARDUINO_IDE := $(shell cygpath -m -w ${ARDUINO_IDE})
@@ -49,6 +52,9 @@ else
 
   endif
 endif
+
+## TODO : verifier que ça marche partout
+override ARDUINO_IDE := ${JAVA_ARDUINO_IDE}
 
 ## deduce target dir
 TARGET_DIR := ${CALLER_DIR}target/${TARGET_BOARD}

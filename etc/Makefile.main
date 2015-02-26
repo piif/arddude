@@ -26,24 +26,26 @@ include ${MAKE_MAKE_DIR}/etc/Makefile.common
 PROJECT_NAME ?= $(notdir $(realpath ${CALLER_DIR}))
 
 ## deduce in and out file names
-ifeq (${MAKECMDGOALS},lib)
+ifeq (${TODO},lib)
   OUT_NAME ?= lib${PROJECT_NAME}.a
-endif
-ifneq ($(findstring ${MAKECMDGOALS},bin upload console),)
+else
   MAIN_SOURCE ?= $(wildcard ${CALLER_DIR}/${PROJECT_NAME}.ino ${CALLER_DIR}/${PROJECT_NAME}.cpp ${CALLER_DIR}/${PROJECT_NAME}.c \
 		${CALLER_DIR}/main.ino ${CALLER_DIR}/main.cpp ${CALLER_DIR}/main.c)
 
   ifeq (${MAIN_SOURCE},)
-    $(error Can't find main destination file. Caller must specify which one to use)
+    $(error Can't find main destination file. Caller must specify which one to use (MAIN_SOURCE=...))
   endif
   ifneq ($(words ${MAIN_SOURCE}),1)
-    $(error Several files may be destination. Caller must specify which one to use)
+    $(error Several files may be destination. Caller must specify which one to use (MAIN_SOURCE=...))
   endif
 
   OUT_NAME ?= $(notdir $(basename ${MAIN_SOURCE})).hex
 endif
 
 OUT_PATH := ${TARGET_DIR}/${OUT_NAME}
+$(info MAIN_SOURCE=${MAIN_SOURCE})
+$(info OUT_PATH=${OUT_PATH})
+$(info INCLUDE_FLAGS=${INCLUDE_FLAGS})
 
 LDFLAGS := ${LDFLAGS} -L${CORE_LIB_DIR} -lCore
 
@@ -53,7 +55,7 @@ lib: ${OUT_PATH} | ${TARGET_DIR}
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
 console: consoleFlag
-	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_DEVICE} -f ${OUT_PATH} ${DO_UPLOAD}
+	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} ${DO_UPLOAD}
 
 consoleFlag: ${OUT_PATH}
 	touch consoleFlag
@@ -61,7 +63,7 @@ consoleFlag: ${OUT_PATH}
 
 # always launch upload, even if binary didn't get compiled
 upload: ${OUT_PATH}
-	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_DEVICE} -f ${OUT_PATH} -u -x
+	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} -u -x
 
 ${OUT_PATH}: ${CORE_LIB} ${DEPENDENCIES}
 
