@@ -1,4 +1,5 @@
 default: all
+$(info Makefile.core)
 
 MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 include ${MAKE_MAKE_DIR}/etc/Makefile.tools

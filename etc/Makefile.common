@@ -1,4 +1,4 @@
-## TODO if BOARD specified and target makefile already exists, IDE path is in it
+$(info Makefile.common)
 
 ## verify that ARDUINO_IDE and TARGET_BOARD are defined
 ifeq (${TARGET_BOARD},)

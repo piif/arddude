@@ -1,4 +1,5 @@
 default: console
+$(info Makefile.main)
 
 MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 include ${MAKE_MAKE_DIR}/etc/Makefile.tools
@@ -47,9 +48,11 @@ OBJS = $(addsuffix .o,$(basename ${ALL_SOURCES:${CALLER_DIR}/%=${TARGET_DIR}/%})
 ## ok .. basic variables are defined, we can call common makefile
 
 #MAKE_MAKE_DIR := $(call truepath,$(dir $(lastword ${MAKEFILE_LIST}))..)
+$(info main : before CC=${CC})
 include ${MAKE_MAKE_DIR}/etc/Makefile.common
 
 ## now, main target dir and core libs one are known
+$(info main : after CC=${CC})
 
 #$(info main : TARGET_DIR=${TARGET_DIR})
 
@@ -88,7 +91,26 @@ ${CORE_LIB}:
 .PHONY: bin lib dependencies corelib upload console discovery
 
 # rules to let eclipse discover constants and includes
-discovery: CMD_BUT_LAST := $(filter-out $(lastword ${CMD}),${CMD})
-discovery: CMD_LAST := $(lastword ${CMD})
+ifeq (${MAKECMDGOALS},discovery)
+
+  #$(info CMD='${CMD}')
+  CMD_LAST := $(lastword ${CMD})
+  #$(info CMD_LAST=${CMD_LAST})
+  CMD_FIRST := $(firstword ${CMD})
+  #$(info CMD_FIRST=${CMD_FIRST})
+  CMD_REMAIN := $(wordlist 2,1000,$(filter-out $(lastword ${CMD}),${CMD}))
+  #$(info CMD_REMAIN=${CMD_REMAIN})
+
+  ifeq (${CMD_FIRST},gcc)
+    DISCOVERY_CMD = ${CC}
+  else ifeq (${CMD_FIRST},g++)
+    DISCOVERY_CMD = ${CXX}
+  else
+    DISCOVERY_CMD = ${CXX} ${CMD_FIRST}
+    #$(error unexpected command ${CMD_FISRT})
+  endif
+
+endif
+
 discovery:
-	${CMD_BUT_LAST} ${CXXFLAGS} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST}
+	${DISCOVERY_CMD} ${CMD_REMAIN} ${CXXFLAGS} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST}
