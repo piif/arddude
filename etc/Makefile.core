@@ -1,14 +1,17 @@
 default: all
-$(info Makefile.core)
+#$(info Makefile.core)
 
 MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 include ${MAKE_MAKE_DIR}/etc/Makefile.tools
+
+MAKE_MAKE_DIR := $(call truepath,${MAKE_MAKE_DIR})
+TARGET_DIR := ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}
 
 # must define those variables with = instead of :=, and before Makefile.common inclusion
 # => when Makefile.common include in turn target/../Makefile, ${OBJS} (used as a prerequisite) will be defined.
 # must '=' since CORE_DIR will be defined later
 SOURCE_DIRS = ${CORE_DIR} ${VARIANT_DIR}
-ALL_SOURCES = $(foreach d,${SOURCE_DIRS},$(wildcard $d/*.c) $(wildcard $d/*.cpp))
+ALL_SOURCES = $(foreach d,${SOURCE_DIRS},$(call rwildcard,$d,*.c) $(call rwildcard,$d,*.cpp))
 OBJS = $(addsuffix .o,$(basename ${ALL_SOURCES:${HARDWARE_DIR}/%=${TARGET_DIR}/%}))
 
 include ${MAKE_MAKE_DIR}/etc/Makefile.common

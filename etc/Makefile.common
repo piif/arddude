@@ -1,4 +1,4 @@
-$(info Makefile.common)
+#$(info Makefile.common)
 
 ## verify that ARDUINO_IDE and TARGET_BOARD are defined
 ifeq (${TARGET_BOARD},)
@@ -23,7 +23,8 @@ ifeq (${ARDUINO_IDE},)
 endif
 
 # default current dir to here
-CALLER_DIR ?= $(call truepath,.)
+CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
+#CALLER_DIR ?= $(call truepath,.)
 
 export MKDIR ?= mkdir -p
 
@@ -31,12 +32,14 @@ MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.${BATCH_EXT} -I ${ARDUINO_IDE} ${MAKE_MAKE
 ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.${BATCH_EXT} -I ${ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
 
 ## deduce target dir
-TARGET_DIR := ${CALLER_DIR}/target/${TARGET_BOARD}
+TARGET_DIR ?= ${CALLER_DIR}/target/${TARGET_BOARD}
 
 ## and core lib
+#CORE_LIB_DIR := ${TARGET_DIR}
 CORE_LIB_DIR := $(call truepath,${MAKE_MAKE_DIR}/target/${TARGET_BOARD})
 #VPATH += ${CORE_LIB_DIR}
-CORE_LIB := ${CORE_LIB_DIR}/libCore.a
+CORE_LIB_NAME := libCore.a
+CORE_LIB := ${CORE_LIB_DIR}/${CORE_LIB_NAME}
 
 ${TARGET_DIR} :
 	-${MKDIR} ${TARGET_DIR}

@@ -87,7 +87,7 @@ public class MakeMake {
 		PreferencesMap prefs;
 		try {
 			// arguments are unused, we must just instantiate Compiler class to access to preferences
-			processing.app.debug.Compiler compiler = new processing.app.debug.Compiler(null, "${TARGET_DIR}", "${PROJECT_NAME}");
+			processing.app.debug.Compiler compiler = new processing.app.debug.Compiler(null, "${TARGET_DIR}", "${OUT_NAME}");
 			prefs = compiler.getBuildPreferences();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -118,7 +118,7 @@ public class MakeMake {
 		helper.pref2varAndSet("VARIANT_DIR", "build.variant.path");
 		helper.raw2var("INCLUDE_FLAGS", "-I${CORE_DIR} -I${VARIANT_DIR}");
 
-		out.println("\n## C compiler");
+		out.println("\n## C/C++ compiler");
 		helper.recipe2var("CC", "{compiler.path}{compiler.c.cmd}");
 		helper.pref2varAndSet("CFLAGS", "compiler.c.flags");
 		helper.recipe2var("CXX", "{compiler.path}{compiler.cpp.cmd}");
@@ -126,43 +126,54 @@ public class MakeMake {
 		helper.recipe2var("AS", "{compiler.path}{compiler.c.cmd}");
 		helper.pref2varAndSet("ASFLAGS", "compiler.S.flags");
 
+		// try to cut command line to get specific options
+		// as these options are only in global recipe, we try to extract them by faking some {} entries
+		// and use them as separator "around" other arguments.
+		out.println("\n## flags to use from macro/includes discovery");
+		String extra = " " + helper.recipe("build.extra_flags");
 		String targetFlags = helper.recipe("recipe.cpp.o.pattern",
 				"compiler.cpp.flags", "<<<BEGIN>>>",
 				"compiler.cpp.extra_flags", "<<<END>>>");
 		targetFlags = targetFlags.replaceFirst("^.*<<<BEGIN>>>(.*)<<<END>>>.*$", "$1");
-		helper.raw2var("DISCOVERY_FLAGS", targetFlags);
+		helper.raw2var("DISCOVERY_FLAGS_GXX", targetFlags + extra);
+
+		targetFlags = helper.recipe("recipe.c.o.pattern",
+				"compiler.c.flags", "<<<BEGIN>>>",
+				"compiler.c.extra_flags", "<<<END>>>");
+		targetFlags = targetFlags.replaceFirst("^.*<<<BEGIN>>>(.*)<<<END>>>.*$", "$1");
+		helper.raw2var("DISCOVERY_FLAGS_GCC", targetFlags + extra);
 
 		// target specific flags are into recipe itself and not in cflags definition
 		// => have to generate a full rule
 		out.println("\n## generate code from c, cpp, ino or S files");
 		out.println("${TARGET_DIR}/%.o: %.c");
-		out.println("\t@${MKDIR} ${TARGET_DIR}/${*D}");
+		out.println("\t@${MKDIR} ${@D}");
 		out.println("\t" + helper.recipe("recipe.c.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
 				"+compiler.c.extra_flags", "${CFLAGS_EXTRA}",
 				"source_file", "$<",
-				"object_file", "${TARGET_DIR}/$*.o"));
+				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.ino");
-		out.println("\t@${MKDIR} ${TARGET_DIR}/${*D}");
+		out.println("\t@${MKDIR} ${@D}");
 		out.println("\t" + helper.recipe("recipe.cpp.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
 				"+compiler.cpp.extra_flags", "${CXXFLAGS_EXTRA} -x c++",
 				"source_file", "$<",
-				"object_file", "${TARGET_DIR}/$*.o"));
+				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.cpp");
-		out.println("\t@${MKDIR} ${TARGET_DIR}/${*D}");
+		out.println("\t@${MKDIR} ${@D}");
 		out.println("\t" + helper.recipe("recipe.cpp.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
 				"+compiler.cpp.extra_flags", "${CXXFLAGS_EXTRA}",
 				"source_file", "$<",
-				"object_file", "${TARGET_DIR}/$*.o"));
+				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.S");
-		out.println("\t@${MKDIR} ${TARGET_DIR}/${*D}");
+		out.println("\t@${MKDIR} ${@D}");
 		String recipe = helper.recipe("recipe.S.o.pattern",
 				"includes", "${INCLUDE_FLAGS}",
 				"+compiler.S.extra_flags", "${ASFLAGS_EXTRA}",
 				"source_file", "$<",
-				"object_file", "${TARGET_DIR}/$*.o");
+				"object_file", "$@");
 		if (recipe == null) {
 			out.println("\t$(error No rule to compile this kind of file for this target platform)");
 		} else {
@@ -178,14 +189,19 @@ public class MakeMake {
 		// command line is a bit crazy
 		// => have to generate a full rule
 		out.println("\n## generate binary from .o files");
+		helper.pref2varAndSet("LDFLAGS", "compiler.c.elf.flags");
 		out.println("${TARGET_DIR}/%.elf: ${OBJS}");
 		// recipes contain a "{build.path}/{archive_file}" to include core lib, but it doesn't match our path constraints
 		// => fake it by putting last object in it, and other ones in {object_files}
 		// + have to remove target_dir from this last entry
+//		out.println("\t" + helper.recipe("recipe.c.combine.pattern",
+//				"+compiler.c.elf.extra_flags", "${ELFFLAGS}",
+//				"object_files", "$(filter-out $(lastword $^),$^)", // /!\ with 's'
+//				"archive_file", "$(subst ${TARGET_DIR}/,,$(lastword $^))") + " ${LDFLAGS}");
 		out.println("\t" + helper.recipe("recipe.c.combine.pattern",
-				"+compiler.c.elf.extra_flags", "${ELFFLAGS}",
-				"object_files", "$(filter-out $(lastword $^),$^)", // /!\ with 's'
-				"archive_file", "$(subst ${TARGET_DIR}/,,$(lastword $^))") + " ${LDFLAGS}");
+				"+compiler.c.elf.extra_flags", "${LDFLAGS_EXTRA}",
+				"object_files", "$^", // /!\ with 's'
+				"archive_file", "${CORE_LIB_NAME}"));
 
 		out.println("\n## convert elf file");
 		helper.recipe2var("EEP", "{compiler.path}{compiler.objcopy.cmd}");
@@ -193,10 +209,23 @@ public class MakeMake {
         out.println("%.eep:%.elf");
         out.println("\t${EEP} ${EEPFLAGS} ${EEPFLAGS_EXTRA} $< $@");
 
-		helper.recipe2var("HEX", "{compiler.path}{compiler.elf2hex.cmd}");
-		helper.pref2varAndSet("HEXFLAGS", "compiler.elf2hex.flags");
-        out.println("%.hex:%.elf");
-        out.println("\t${HEX} ${HEXFLAGS} ${HEXFLAGS_EXTRA} $< $@");
+        String hexRecipe = helper.get("recipe.objcopy.hex.pattern");
+        if (hexRecipe.contains(".hex")) {
+        	helper.raw2var("UPLOAD_EXT", ".hex");
+	 		helper.recipe2var("HEX", "{compiler.path}{compiler.elf2hex.cmd}");
+			helper.pref2varAndSet("HEXFLAGS", "compiler.elf2hex.flags");
+	        out.println("%.hex:%.elf");
+	        out.println("\t${HEX} ${HEXFLAGS} ${HEXFLAGS_EXTRA} $< $@");
+       } else if (hexRecipe.contains(".bin")) {
+        	helper.raw2var("UPLOAD_EXT", ".bin");
+	 		helper.recipe2var("BIN", "{compiler.path}{compiler.elf2hex.cmd}");
+			helper.pref2varAndSet("BINFLAGS", "compiler.elf2hex.flags");
+	        out.println("%.bin:%.elf");
+	        out.println("\t${BIN} ${BINFLAGS} ${BINFLAGS_EXTRA} $< $@");
+        } else {
+        	helper.raw2var("UPLOAD_EXT", "_UNKNOWN");
+	        out.println("$(warning don't know how to generate file to upload)");
+        }
 
 		helper.recipe2var("SIZE", "{compiler.path}{compiler.size.cmd}");
 		// this command has no flags preference

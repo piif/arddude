@@ -1,5 +1,5 @@
 # some "functions" and tools to deal with pathes whatever the environment
-$(info Makefile.tools)
+#$(info Makefile.tools)
 
 ifeq ($(OS),Windows_NT)
   ifneq ($(findstring CYGWIN,$(shell uname)),)
@@ -32,6 +32,7 @@ endif
 
 # Make does not offer a recursive wildcard function, so here's one:
 # thank to http://stackoverflow.com/questions/3774568/makefile-issue-smart-way-to-scan-directory-tree-for-c-files
+# takes 2 arguments : directory pattern
 rwildcard=$(wildcard $(addsuffix $2, $1)) $(foreach d,$(wildcard $(addsuffix *, $1)),$(call rwildcard,$d/,$2))
 
 # short version : equivalent of shell "find ."
@@ -41,6 +42,13 @@ findall=$1 $(foreach d,$(wildcard $(addsuffix /*/, $1)),$(call subdirs,$d))
 
 subdirs=$(sort $(dir $(wildcard $(1:%/=%)/*/)))
 rsubdirs=$1 $(foreach d,$(filter-out $(1:%/=%)/,$(call subdirs,$1)),$(call rsubdirs,$d,$1))
+
+## wildcards : take a directory and a list of patterns to set as suffix to this dir before calling wildcard
+## + manage slashes between dir and pattern (since wildcard "x//*c" matches nothing and x*c may match wrong results)
+wildcards=$(foreach p,$2,$(wildcard ${1:%/=%}/$p))
+
+## filter-out by substring
+filter-out-substr=$(foreach e,$2,$(if $(strip $(foreach p,$1,$(findstring $p,$e))),,$e))
 
 tools-test:
 	$(info TODO test some cases to verify that it works everywhere ...)
@@ -67,3 +75,9 @@ tools-test:
 	$(eval classes = $(call rsubdirs,target/classes))
 	$(info classes = ${classes})
 	$(info classes w/ cc = $(filter-out target/classes/cc/%,${classes}))
+
+	$(info x out of aze qsd wxc rtyx cvb xyx mylk => $(call filter-out-substr,x,aze qsd wxc rtyx cvb xyx mylk))
+	$(info x y out of aze qsd wxc rtyx cvb xyx mylk => $(call filter-out-substr,x y,aze qsd wxc rtyx cvb xyx mylk))
+
+	$(info wildcards etc, *.sh *.bat => $(call wildcards,etc,*.sh *.bat))
+	$(info wildcards etc/, *.sh *.bat => $(call wildcards,etc/,*.sh *.bat))

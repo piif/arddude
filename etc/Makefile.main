@@ -1,5 +1,5 @@
 default: console
-$(info Makefile.main)
+#$(info Makefile.main)
 
 MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 include ${MAKE_MAKE_DIR}/etc/Makefile.tools
@@ -17,20 +17,26 @@ SOURCE_EXCLUDES += target/%
 
 ifeq (${SOURCE_DIRS},)
   SOURCE_DIRS := $(call rsubdirs,${CALLER_DIR})
+else
+  SOURCE_DIRS := $(foreach d,${SOURCE_DIRS},$(call rsubdirs,$(call truepath,$d)))
 endif
 ifneq (${SOURCE_EXCLUDES},)
   SOURCE_EXCLUDES := $(foreach d,${SOURCE_EXCLUDES},$(call truepath,$d))
   SOURCE_DIRS := $(filter-out ${SOURCE_EXCLUDES},${SOURCE_DIRS})
 endif
+ifneq (${SOURCE_EXCLUDE_PATTERNS},)
+  SOURCE_DIRS := $(call filter-out-substr,${SOURCE_EXCLUDE_PATTERNS},${SOURCE_DIRS})
+endif
+
 #$(info main : SOURCE_DIRS=${SOURCE_DIRS})
 
 ## by default, look for a main source file with project name or "main" as basename 
 ## but user may define SOURCES_DIR=libraries/ + MAIN_SOURCE=subProject/subProject.ino
 ifeq (${MAIN_SOURCE},)
-  MAIN_SOURCE = $(wildcard \
-		${CALLER_DIR}/${PROJECT_NAME}.ino ${CALLER_DIR}/main.ino \
-		${CALLER_DIR}/${PROJECT_NAME}.cpp ${CALLER_DIR}/main.cpp \
-		${CALLER_DIR}/${PROJECT_NAME}.c ${CALLER_DIR}/main.c)
+#  MAIN_SOURCE = $(wildcard \
+#		${CALLER_DIR}/${PROJECT_NAME}.ino ${CALLER_DIR}/main.ino \
+#		${CALLER_DIR}/${PROJECT_NAME}.cpp ${CALLER_DIR}/main.cpp \
+#		${CALLER_DIR}/${PROJECT_NAME}.c ${CALLER_DIR}/main.c)
   OUT_NAME = ${PROJECT_NAME}
 else
   OUT_NAME = $(notdir $(basename ${MAIN_SOURCE}))
@@ -38,7 +44,7 @@ else
 endif
 
 # call $sort to avoid duplicates between MAIN_SOURCE and found sources
-ALL_SOURCES := $(sort ${MAIN_SOURCE} $(foreach d,${SOURCE_DIRS},$(wildcard $d/*.c) $(wildcard $d/*.cpp) $(wildcard $d/*.ino)))
+ALL_SOURCES := $(sort ${MAIN_SOURCE} $(foreach d,${SOURCE_DIRS},$(call wildcards,$d,*.c *.cpp *.ino)))
 #$(info main : ALL_SOURCES=${ALL_SOURCES})
 # must define this variable with = instead of :=, and before Makefile.common inclusion
 # => when Makefile.common will include target/../Makefile, ${OBJS} (used as a prerequisite) will be fully defined
@@ -48,11 +54,15 @@ OBJS = $(addsuffix .o,$(basename ${ALL_SOURCES:${CALLER_DIR}/%=${TARGET_DIR}/%})
 ## ok .. basic variables are defined, we can call common makefile
 
 #MAKE_MAKE_DIR := $(call truepath,$(dir $(lastword ${MAKEFILE_LIST}))..)
-$(info main : before CC=${CC})
 include ${MAKE_MAKE_DIR}/etc/Makefile.common
 
 ## now, main target dir and core libs one are known
-$(info main : after CC=${CC})
+
+.SECONDARY: ${OBJS}
+
+# add PIF_TOOL_CHAIN define
+CFLAGS += -DPIF_TOOL_CHAIN
+CXXFLAGS += -DPIF_TOOL_CHAIN
 
 #$(info main : TARGET_DIR=${TARGET_DIR})
 
@@ -60,17 +70,25 @@ $(info main : after CC=${CC})
 ifeq (${TODO},lib)
   OUT_PATH := ${TARGET_DIR}/lib${OUT_NAME}.a
 else
-  OUT_PATH := ${TARGET_DIR}/${OUT_NAME}.hex
+  OUT_PATH := ${TARGET_DIR}/${OUT_NAME}${UPLOAD_EXT}
 endif
 
 #$(info main : OUT_PATH=${OUT_PATH})
 
-LDFLAGS += -L${CORE_LIB_DIR} -lCore
+all: ${OUT_PATH} | ${TARGET_DIR}
 #TODO size
 bin: ${OUT_PATH} | ${TARGET_DIR}
 lib: ${OUT_PATH} | ${TARGET_DIR}
 
-${OUT_PATH}: ${CORE_LIB} ${DEPENDENCIES}
+LOCAL_CORE_LIB := ${TARGET_DIR}/${CORE_LIB_NAME}
+${LOCAL_CORE_LIB}: ${CORE_LIB} | ${TARGET_DIR}
+	cp $< $@
+
+export ARDUINO_IDE
+${CORE_LIB}:
+	${MAKE} -C ${MAKE_MAKE_DIR} -f etc/Makefile.core
+
+${OUT_PATH}: ${LOCAL_CORE_LIB} ${DEPENDENCIES}
 
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
@@ -84,9 +102,6 @@ consoleFlag: ${OUT_PATH}
 # always launch upload, even if binary didn't get compiled
 upload: ${OUT_PATH}
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} -u -x
-
-${CORE_LIB}:
-	${MAKE} -C ${MAKE_MAKE_DIR} -f etc/Makefile.core ARDUINO_IDE="${ARDUINO_IDE}"
 
 .PHONY: bin lib dependencies corelib upload console discovery
 
@@ -103,14 +118,28 @@ ifeq (${MAKECMDGOALS},discovery)
 
   ifeq (${CMD_FIRST},gcc)
     DISCOVERY_CMD = ${CC}
+    DISCOVERY_FLAGS = ${DISCOVERY_FLAGS_GCC}
   else ifeq (${CMD_FIRST},g++)
     DISCOVERY_CMD = ${CXX}
+    DISCOVERY_FLAGS = ${DISCOVERY_FLAGS_GXX}
   else
-    DISCOVERY_CMD = ${CXX} ${CMD_FIRST}
-    #$(error unexpected command ${CMD_FISRT})
+    $(error unexpected command ${CMD_FISRT})
   endif
 
 endif
 
 discovery:
-	${DISCOVERY_CMD} ${CMD_REMAIN} ${CXXFLAGS} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST}
+	${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST}
+
+clean:
+	rm -rf ${TARGET_DIR}
+
+
+## gory details about some compilation hacks included in arduino recipes
+
+ifneq ($(findstring arduino_due,${TARGET_BOARD}),)
+# linking needs one of .o core files in its command line => copy it with attended name
+${OUT_PATH}: ${TARGET_DIR}/syscalls_sam3.c.o
+${TARGET_DIR}/syscalls_sam3.c.o: ${CORE_LIB_DIR}/sam/cores/arduino/syscalls_sam3.o | ${TARGET_DIR}
+	cp $< $@
+endif
