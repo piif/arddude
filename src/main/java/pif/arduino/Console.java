@@ -102,7 +102,15 @@ public class Console extends Thread {
 	static final byte MODE_ASCII = 1;
 	static final byte MODE_HEX   = 2;
 
-	protected byte displayMode = MODE_RAW;
+	protected byte displayMode = MODE_ASCII;
+
+	// current line mode
+	static final String LINE_CR   = "\r";
+	static final String LINE_LF   = "\n";
+	static final String LINE_CRLF = "\r\n";
+	static final String LINE_NONE = "";
+
+	protected String lineMode = LINE_NONE;
 
 	/*
 	 * peer sends data it receives thru this method
@@ -143,7 +151,7 @@ public class Console extends Thread {
 	byte outgoingBuffer[] = null;
 
 	void setBuffer(String line) {
-		outgoingBuffer = line.getBytes();
+		outgoingBuffer = (line + lineMode).getBytes();
 	}
 
 	void send() {
@@ -151,23 +159,36 @@ public class Console extends Thread {
 	}
 
 	void handleCommand(String line) {
-		if (line.equals("hex")) {
+		if (peer.onCommand(line)) {
+			return;
+		}
+		if (line.equals("cr")) {
+			lineMode = LINE_CR;
+		} else if (line.equals("lf")) {
+			lineMode = LINE_LF;
+		} else if (line.equals("crlf")) {
+			lineMode = LINE_CRLF;
+		} else if (line.equals("none")) {
+			lineMode = LINE_NONE;
+
+		} else if (line.equals("hex")) {
 			displayMode = MODE_HEX;
 		} else if (line.equals("ascii")) {
 			displayMode = MODE_ASCII;
 		} else if (line.equals("raw")) {
 			displayMode = MODE_RAW;
+
 		} else if (line.startsWith("x ")) {
 			byte[] data = readHexData(line.substring(2));
 			logger.debug(hexTools.toHexDump(data));
 			if (data != null) {
 				peer.onOutgoingData(data);
 			}
+
+		} else if (line.equals("help") || line.equals("?")) {
+			help();
 		} else {
-			if (!peer.onCommand(line)) {
-				logger.warn("Unknown command " + line);
-				
-			}
+			logger.warn("Unknown command " + line + ". Type !help or !? for help");
 		}
 	}
 
@@ -269,11 +290,7 @@ public class Console extends Thread {
 		try {
 			while((inputLine = console.readLine()) != null) {
 				try {
-					if ("!exit".equals(inputLine)) {
-						logger.debug("Exit console");
-						peer.onDisconnect(0);
-						return;
-					} else if (inputLine.length() > 0 && inputLine.charAt(0) == '!') {
+					if (inputLine.length() > 0 && inputLine.charAt(0) == '!') {
 						if (inputLine.length() == 1) {
 							// resend last buffer
 							if (outgoingBuffer != null) {
@@ -286,6 +303,11 @@ public class Console extends Thread {
 							send();
 						} else {
 							handleCommand(inputLine.substring(1));
+							if ("!exit".equals(inputLine)) {
+								logger.debug("Exit console");
+								peer.onDisconnect(0);
+								return;
+							}
 						}
 					} else {
 						setBuffer(inputLine);
@@ -303,5 +325,10 @@ public class Console extends Thread {
 			peer.onDisconnect(1);
 //			e.printStackTrace();
 		}
+	}
+
+	void help() {
+		// TODO
+		logger.info("TODO ...");
 	}
 }
