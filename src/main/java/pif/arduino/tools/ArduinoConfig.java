@@ -22,6 +22,8 @@ import processing.app.helpers.PreferencesMap;
 public class ArduinoConfig extends BaseNoGui {
 	private static Logger logger = Logger.getLogger(ArduinoConfig.class);
 
+	static public int baudrate = 9600;
+
 	static public void setIdePath(String arduinoIdePath) {
 		System.setProperty("user.dir", arduinoIdePath);
 	}
@@ -203,6 +205,8 @@ public class ArduinoConfig extends BaseNoGui {
 
 	public static void setBoard(TargetBoard board) {
 		ArduinoConfig.selectBoard(board);
+		baudrate = Integer.parseInt(
+				board.getPreferences().get("upload.speed"));
 	}
 
 	public static TargetBoard setBoard(String boardName) {

@@ -7,8 +7,8 @@ import pif.arduino.Console;
  */
 public class MySerial extends processing.app.Serial {
 	Console console;
-	public MySerial(Console console) throws processing.app.SerialException {
-		super();
+	public MySerial(Console console, int baudrate) throws processing.app.SerialException {
+		super(baudrate);
 		this.console = console;
 	}
 

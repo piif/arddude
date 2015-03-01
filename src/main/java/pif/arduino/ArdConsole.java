@@ -47,7 +47,6 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 		options.addOption("x", "exit", false, "exit after dump commands instead of launching console");
 		options.addOption("r", "raw", false, "raw mode : dumps list only ids, console is raw, without history nor editing facilities");
-
 	}
 
 	protected static boolean rawMode = false;
@@ -165,6 +164,11 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		System.exit(exitCode);
 	}
 
+
+	void help() {
+		// TODO
+		logger.info("TODO ...");
+	}
 	protected void setPort(String portName) {
 		ArduinoConfig.PortBoard newPort = ArduinoConfig.getPortByName(portName);
 		if (newPort == null) {
@@ -227,14 +231,26 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			ArduinoConfig.listPorts(System.out, rawMode, args != null);
 		} else if (command.equals("port")) {
 			setPort(args);
+		} else if (command.equals("baudrate")) {
+			int baudrate = Integer.parseInt(args);
+			ArduinoConfig.baudrate = baudrate;
 		} else if (command.equals("connect")) {
 			connect();
 		} else if (command.equals("disconnect")) {
 			disconnect();
+		} else if (command.equals("verbose")) {
+			// TODO parse 0 or off, else true
+		} else if (command.equals("file") || command.equals("scan")) {
+			// TODO set file to scan
 		} else if (command.equals("reset")) {
 			resetPort();
 		} else if (command.equals("status")) {
 			status(System.out);
+		} else if (command.equals("help")) {
+			// trap exit to output our own help
+			help();
+			// but return false to let caller handle its own
+			return false;
 		} else {
 			return false;
 		}
@@ -279,7 +295,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (state == STATE_NONE) {
 			// serial must be null
 			try {
-				serial = new MySerial(console);
+				serial = new MySerial(console, ArduinoConfig.baudrate);
 				state = STATE_CONNECTED;
 			} catch (/*processing.app.Serial*/Exception e) {
 				// just specify Exception or jvm crashes at startup
