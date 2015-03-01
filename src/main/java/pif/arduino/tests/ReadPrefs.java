@@ -52,7 +52,6 @@ public class ReadPrefs {
 		public String arduinoIdePath;
 
 		public Config(String[] args) {
-			// TODO parse command line
 			boolean mustLoadIdeClass = findIdePath();
 			File absolute = new File(arduinoIdePath);
 			arduinoIdePath = absolute.getAbsolutePath();

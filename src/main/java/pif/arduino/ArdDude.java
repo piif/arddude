@@ -237,7 +237,6 @@
 //
 //	@Override
 //	public void ownershipChange(int arg0) {
-//		// TODO Auto-generated method stub
 //		System.err.println("ownershipChange !!" + arg0);
 //		disconnect();
 //	}

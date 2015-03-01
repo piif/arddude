@@ -25,7 +25,6 @@ public class MessageRenderer extends ArrayList<String> {
 		for (String s: c) {
 			output.println(prefix + s);
 		}
-		// TODO log
 		return super.addAll(c);
 	}
 }

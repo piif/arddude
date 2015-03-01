@@ -18,7 +18,6 @@ public class FakePeer implements Console.ConsolePeer {
 				Thread.sleep((long) (Math.random()*2000));
 				console.onIncomingData("bla bla bla".getBytes());
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
