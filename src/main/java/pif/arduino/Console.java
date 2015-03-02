@@ -57,6 +57,9 @@ public class Console extends Thread {
 
 	public Console(ConsolePeer peer, boolean raw) {
 		this.raw = raw;
+		if (raw) {
+			displayMode = MODE_RAW;
+		}
 		this.peer = peer;
 	}
 
