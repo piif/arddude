@@ -166,9 +166,18 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 
 	void help() {
-		// TODO
-		logger.info("TODO ...");
+		String help = "!ports [x]: list serial port (as -P command line option). Append any character after command to force a new port scan\n"
+				+ "  !boards : list target plateforms (as -B command line option)\n"
+				+ "  !port xxx : set current serial port (like -p option)\n"
+				+ "  !board xxx : set current board (like -b option)\n"
+				+ "  !connect and !disconnect : as the name suggests ...\n"
+				+ "  !reset : try to reset serial port, then reconnect if was connected (useful after upload in some cases)\n"
+				+ "  !upload : launch upload then reconnect if was connected\n"
+				+ "  !verbose [0,off]: set/reset verbosity flag\n"
+				+ "  !file filename: set file path to scan for modification";
+		System.out.println(help);
 	}
+
 	protected void setPort(String portName) {
 		ArduinoConfig.PortBoard newPort = ArduinoConfig.getPortByName(portName);
 		if (newPort == null) {
@@ -239,9 +248,24 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		} else if (command.equals("disconnect")) {
 			disconnect();
 		} else if (command.equals("verbose")) {
-			// TODO parse 0 or off, else true
+			if ("off".equals(args) || "0".equals(args)) {
+				PreferencesData.setBoolean("upload.verbose", false);
+			} else {
+				PreferencesData.setBoolean("upload.verbose", true);
+			}
 		} else if (command.equals("file") || command.equals("scan")) {
-			// TODO set file to scan
+			if (args == null) {
+				logger.error("missing file path to scan");
+			} else {
+				if (scanner != null) {
+					scanner.stop();
+				}
+				try {
+					scanner = new FileScanner(new File(args), this);
+				} catch (FileNotFoundException e) {
+					logger.error("Bad file path to scan");
+				}
+			}
 		} else if (command.equals("reset")) {
 			resetPort();
 		} else if (command.equals("status")) {

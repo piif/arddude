@@ -15,7 +15,7 @@ export UPLOAD_PORT ?= com4
 ## else, we may specify main source file, to give its name to output file
 ## else current directory name will be used as name, and a .cpp or .ino file
 ##with the same name, or main.cpp or main.ino must exist
-# exportMAIN_SOURCE=my_main.cpp
+# export MAIN_SOURCE=my_main.cpp
 
 ## then include AMM main Makefile
 include $(AMM_DIR)/etc/Makefile.main

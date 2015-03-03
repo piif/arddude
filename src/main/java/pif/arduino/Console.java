@@ -332,6 +332,22 @@ public class Console extends Thread {
 
 	void help() {
 		// TODO
-		logger.info("TODO ...");
+		String help = "Any byte incomming from peer is displayed in a format according to display mode (see hex, rax and ascii command below)"
+				+ "Any character entered in console are filled in a sending buffer, excepted if line begins with '!'.\n"
+				+ "  When hitting enter, end of line characters are appended, and buffer is sent to peer.\n"
+				+ "  End of line character depends on current line mode, which is 'none' by default (thus no character).\n"
+				+ "  See cr, lf, .. commands balowto modify this mode.\n"
+				+ "  To send explicitly a line beginning by '!', double it ('!!')\n"
+				+ "Lines begining with a '!' start a command :"
+				+ "  !exit (or Ctrl-D) : exit console program\n"
+				+ "  ! : resend last sending buffer, including its end of line characters (even if line mode has been modified)\n"
+				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C\n"
+				+ "  !ascii : printable characters are displayed raw, other ones are displayed in [hh] format (default mode)\n"
+				+ "  !raw : all incomming bytes are displayed raw (default mode if -raw command line option was set)\n"
+				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\r', '\n', '\r\n', nothing\n"
+				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text\n"
+				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ]\n"
+				+ "    Caution : this not does NOT append end of line characters, whatever current line mode";
+		System.out.println(help);
 	}
 }

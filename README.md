@@ -1,26 +1,41 @@
-arddude
+arddude next generation
 =======
 
-Mix between arvdude and serial console, for arduino
-Need java (to execute) and maven (to compile) + avrdude binary (can be found in
-arduino sdk)
+This new version of ArdDude is the base for a complete Arduino tool chain.
+It needs Arduino IDE to be installed (tested on version 1.6) to find compilers and boards descriptors and tools to read them.
 
-This code is made to run avrdude and swap to a serial console just after.
+This project contains 2 parts :
 
-Call it with a avrdude full command line as arguments
+ArdConsole
+-----
 
-It looks to avrdude command arguments to find serial port name and file name beeing uploaded.
-Then, when this file changes (because of a build), it relaunch upload after closing serial console
-and open it again after.
+This is a new version of old ArdDude utility.
+It's goal is to connect to Arduino serial monitor, and be able to upload new sketch and reconnect just after.
+It needs Arduino IDE installation path (under windows, it looks for default one) and is able to :
+* dump available serial ports (and find Arduino type connected on it when possible)
+* dump available boards (native ones, or user supplied ones in sketchbook/hardware directory)
+* connect to port
+* display incomming data as raw, ascii or hex dump
+* send data from input in hex or raw
 
-Thus, you just have to launch it once to update your arduino automatically, and stay connected to
-its console.
+run etc/console.sh or etc\console.bat with --help option for more information
 
-Depends on rxtx-rebundled (http://dev.root1.de/projects/rxtx-rebundled) to embed native serial libs.
 
-* to build it
-  mvn clean install
+MakeMake
+-----
 
-* to launch it
-  java -jar generated_jar [-f] /path/to/avrdude avrdude arguments ...
-  use -f option to force an upload at startup
+This utility is made to be called from makefiles available in etc directory.
+It generates Makefile rules from arduino descriptor files, to run compilation tools included in Arduino IDE
+Those makefiles are ready to launch from Eclipse environment, or from command line.
+
+Documentation about this tool chain is still TODO ... hold the line
+
+TODO
+----
+* howto for Eclipse IDE
+* auto-completion in ArdConsole
+* deep testing
+
+Known issues
+----
+* have to reset line at ArdConsole launch from linux (at least with uno)

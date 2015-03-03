@@ -1,3 +1,5 @@
+# Sometime, under linux, lock files directory as rights which don' match
+# user one, event if user is in correct group.
+# This script simply open them : use it via sudo ... at your own risks 
 chmod 775 /var/lock
 chgrp lock /var/lock
-

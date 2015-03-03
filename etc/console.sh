@@ -3,7 +3,7 @@
 HERE="$(cd $(dirname $0) ; /bin/pwd)"
 ROOTDIR="$(dirname "$HERE")"
 
-JAR="$(/bin/ls -d1 $ROOTDIR/target/ArdDude-*.jar | tail -1)"
+JAR="$(/bin/ls -d1 $ROOTDIR/target/ArdDude-*-shaded.jar $ROOTDIR/lib/arddude.jar 2> /dev/null | tail -1)"
 MAIN=pif.arduino.ArdConsole
 
 if [ "$OSTYPE" = "cygwin" ] ; then
