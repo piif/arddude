@@ -12,7 +12,7 @@ ifeq (${ARDUINO_IDE},)
     ifeq ($(OS),Windows_NT)
       ARDUINO_IDE := $(wildcard ${ProgramFiles(x86)}/arduino)
     else
-      ARDUINO_IDE := $(lastword $(sort $(wildcard /usr/share/arduino /usr/local/arduino-* /opt/arduino-*))))
+      ARDUINO_IDE := $(lastword $(sort $(wildcard /usr/share/arduino /usr/local/arduino-* /opt/arduino-*)))
     endif
     ifeq (${ARDUINO_IDE},)
       $(error ARDUINO_IDE is not defined)
@@ -43,9 +43,6 @@ CORE_LIB := ${CORE_LIB_DIR}/${CORE_LIB_NAME}
 
 ${TARGET_DIR} :
 	-${MKDIR} ${TARGET_DIR}
-
-${MAKE_MAKE_DIR}/target/${TARGET_BOARD}:
-	-${MKDIR} ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}
 
 ## look for target specific Makefile, or generate it
 TARGET_MAKEFILE := ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}/Makefile

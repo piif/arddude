@@ -13,22 +13,22 @@ CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
 ## PROJECT_NAME may be already defined, else, use project dirname
 PROJECT_NAME ?= $(notdir ${CALLER_DIR})
 
-SOURCE_EXCLUDES += target/%
+SOURCE_EXCLUDES += target/
 
 ifeq (${SOURCE_DIRS},)
   SOURCE_DIRS := $(call rsubdirs,${CALLER_DIR})
 else
-  SOURCE_DIRS := $(foreach d,${SOURCE_DIRS},$(call rsubdirs,$(call truepath,$d)))
+  override SOURCE_DIRS := $(foreach d,${SOURCE_DIRS},$(call rsubdirs,$(call truepath,$d)))
 endif
 ifneq (${SOURCE_EXCLUDES},)
-  SOURCE_EXCLUDES := $(foreach d,${SOURCE_EXCLUDES},$(call truepath,$d))
+  SOURCE_EXCLUDES := $(foreach d,${SOURCE_EXCLUDES},$(call truepath,$d)/%)
   SOURCE_DIRS := $(filter-out ${SOURCE_EXCLUDES},${SOURCE_DIRS})
 endif
 ifneq (${SOURCE_EXCLUDE_PATTERNS},)
   SOURCE_DIRS := $(call filter-out-substr,${SOURCE_EXCLUDE_PATTERNS},${SOURCE_DIRS})
 endif
 
-#$(info main : SOURCE_DIRS=${SOURCE_DIRS})
+#$(info main after exclude patterns: SOURCE_DIRS=${SOURCE_DIRS})
 
 ## by default, look for a main source file with project name or "main" as basename 
 ## but user may define SOURCES_DIR=libraries/ + MAIN_SOURCE=subProject/subProject.ino
@@ -40,7 +40,7 @@ ifeq (${MAIN_SOURCE},)
   OUT_NAME = ${PROJECT_NAME}
 else
   OUT_NAME = $(notdir $(basename ${MAIN_SOURCE}))
-  MAIN_SOURCE := ${CALLER_DIR}/${MAIN_SOURCE}
+  override MAIN_SOURCE := ${CALLER_DIR}/${MAIN_SOURCE}
 endif
 
 # call $sort to avoid duplicates between MAIN_SOURCE and found sources
@@ -93,6 +93,9 @@ ${OUT_PATH}: ${LOCAL_CORE_LIB} ${DEPENDENCIES}
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
 console: consoleFlag
+ifeq (${UPLOAD_PORT},)
+  $(error UPLOAD_PORT must be specified)
+endif
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} ${DO_UPLOAD}
 
 consoleFlag: ${OUT_PATH}
@@ -101,6 +104,9 @@ consoleFlag: ${OUT_PATH}
 
 # always launch upload, even if binary didn't get compiled
 upload: ${OUT_PATH}
+ifeq (${UPLOAD_PORT},)
+  $(error UPLOAD_PORT must be specified)
+endif
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} -u -x
 
 .PHONY: bin lib dependencies corelib upload console discovery
