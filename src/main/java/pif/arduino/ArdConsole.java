@@ -44,6 +44,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		options.addOption("f", "file", true, "file to scan / upload");
 		options.addOption("u", "upload", false, "launch upload at startup");
 		options.addOption("v", "verbose", false, "set upload verbosity");
+		options.addOption("d", "debug", false, "set debug level");
 
 		options.addOption("x", "exit", false, "exit after dump commands instead of launching console");
 		options.addOption("r", "raw", false, "raw mode : dumps list only ids, console is raw, without history nor editing facilities");
@@ -96,6 +97,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			PreferencesData.setBoolean("upload.verbose", true);
 		} else {
 			PreferencesData.setBoolean("upload.verbose", false);
+		}
+
+		if (commandLine.hasOption('d')) {
+			Logger.getRootLogger().setLevel(org.apache.log4j.Level.DEBUG);
 		}
 
 		// ok, it will become a bit more complicated, pass to an instance...

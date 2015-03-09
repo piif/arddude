@@ -28,6 +28,7 @@ public class MakeMake {
 		choice.setRequired(true);
 		options.addOptionGroup(choice);
 		options.addOption("o", "output", true, "output directory for generated files");
+		options.addOption("d", "debug", false, "set debug level");
 	}
 
 	public static void main(String[] args) {
@@ -42,6 +43,12 @@ public class MakeMake {
 		if (commandLine.hasOption('h')) {
 			usage(0);
 		}
+
+		if (commandLine.hasOption('d')) {
+			Logger.getRootLogger().setLevel(org.apache.log4j.Level.DEBUG);
+		}
+		// for debug of jna init
+		logger.debug("temp path = " + System.getProperty("java.io.tmpdir"));
 
 		if (!LoadConfig.load(commandLine)) {
 			usage(2);

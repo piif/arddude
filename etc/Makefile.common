@@ -29,7 +29,9 @@ CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
 export MKDIR ?= mkdir -p
 
 MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.${BATCH_EXT} -I ${ARDUINO_IDE} ${MAKE_MAKE_FLAGS}
+# --debug
 ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.${BATCH_EXT} -I ${ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
+# --debug
 
 ## deduce target dir
 TARGET_DIR ?= ${CALLER_DIR}/target/${TARGET_BOARD}
