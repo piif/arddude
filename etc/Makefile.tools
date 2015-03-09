@@ -1,16 +1,16 @@
 # some "functions" and tools to deal with pathes whatever the environment
 #$(info Makefile.tools)
 
-ifeq ($(OS),Windows_NT)
-  ifneq ($(findstring CYGWIN,$(shell uname)),)
-    ARCH:=cygwin
-    ## manage to avoid warning from make,avr-gcc and other cygwin binaries
-    export CYGWIN=nodosfilewarning
-  else
-    ARCH:=windows
-  endif
+ifneq (${CYGWIN_HOME},)
+  ARCH:=cygwin
+  ## manage to avoid warning from make,avr-gcc and other cygwin binaries
+  export CYGWIN=nodosfilewarning
 else
-  ARCH:=unix
+  ifeq ($(shell uname),)
+    ARCH:=windows
+  else
+    ARCH:=unix
+  endif
 endif
 
 ifeq (ARCH,windows)

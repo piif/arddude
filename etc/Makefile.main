@@ -3,6 +3,7 @@ default: console
 
 MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 include ${MAKE_MAKE_DIR}/etc/Makefile.tools
+#$(info ARCH=${ARCH})
 
 ## all *_DIR variables must contain absolute path names without trailing /
  
