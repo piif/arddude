@@ -134,6 +134,8 @@ public class MakeMake {
 		helper.println("\n## entry point for core compilation");
 		helper.raw2var("TARGET_PACKAGE", pf.getContainerPackage().getId());
 		helper.raw2var("TARGET_PLATFORM", pf.getId());
+		helper.raw2var("TARGET_MCU", "build.mcu");
+		helper.raw2var("TARGET_F_CPU", "build.f_cpu");
 		helper.pref2varAndSet("HARDWARE_DIR", "runtime.hardware.path");
 		helper.pref2varAndSet("CORE_DIR", "build.core.path");
 		helper.pref2varAndSet("VARIANT_DIR", "build.variant.path");
@@ -205,8 +207,8 @@ public class MakeMake {
 		out.println("\n## generate library");
 		helper.recipe2var("AR", "{compiler.path}{compiler.ar.cmd}");
 		helper.pref2varAndSet("ARFLAGS", "compiler.ar.flags");
-        out.println("${TARGET_DIR}/lib%.a: ${OBJS}");
-        out.println("\t${AR} ${ARFLAGS} ${ARFLAGS_EXTRA} $@ $^");
+        out.println("${TARGET_DIR}/lib%.a:");
+        out.println("\t${AR} ${ARFLAGS} ${ARFLAGS_EXTRA} $@ ${OBJS}");
 
 		// command line is a bit crazy
 		// => have to generate a full rule
