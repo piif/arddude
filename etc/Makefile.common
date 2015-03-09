@@ -22,19 +22,9 @@ ifeq (${ARDUINO_IDE},)
   endif
 endif
 
-# default current dir to here
-CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
-#CALLER_DIR ?= $(call truepath,.)
-
-export MKDIR ?= mkdir -p
-
-MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.${BATCH_EXT} -I ${ARDUINO_IDE} ${MAKE_MAKE_FLAGS}
-# --debug
-ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.${BATCH_EXT} -I ${ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
-# --debug
-
-## deduce target dir
-TARGET_DIR ?= ${CALLER_DIR}/target/${TARGET_BOARD}
+ifeq (${MAKEFILE_TARGET_INCLUDED},)
+  include ${MAKE_MAKE_DIR}/etc/Makefile.target
+endif
 
 ## and core lib
 #CORE_LIB_DIR := ${TARGET_DIR}
@@ -42,13 +32,3 @@ CORE_LIB_DIR := $(call truepath,${MAKE_MAKE_DIR}/target/${TARGET_BOARD})
 #VPATH += ${CORE_LIB_DIR}
 CORE_LIB_NAME := libCore.a
 CORE_LIB := ${CORE_LIB_DIR}/${CORE_LIB_NAME}
-
-${TARGET_DIR} :
-	-${MKDIR} ${TARGET_DIR}
-
-## look for target specific Makefile, or generate it
-TARGET_MAKEFILE := ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}/Makefile
-${TARGET_MAKEFILE} : | ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}
-	${MAKE_MAKE} --board ${TARGET_BOARD} --output ${TARGET_MAKEFILE}
-
--include ${TARGET_MAKEFILE}

@@ -1,0 +1,32 @@
+MAKE_MAKE_DIR ?= ${AMM_DIR}
+
+ifeq (${MAKEFILE_TOOLS_INCLUDED},)
+  include ${MAKE_MAKE_DIR}/etc/Makefile.tools
+endif
+
+# default current dir to here
+CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
+#$(info Makefile.target : $(dir $(firstword ${MAKEFILE_LIST})) -> CALLER_DIR = ${CALLER_DIR})
+
+## deduce target dir
+TARGET_DIR ?= ${CALLER_DIR}/target/${TARGET_BOARD}
+#$(info Makefile.target : TARGET_DIR = ${TARGET_DIR})
+export MKDIR ?= mkdir -p
+
+MAKE_MAKE = ${MAKE_MAKE_DIR}/etc/mkmk.${BATCH_EXT} -I ${ARDUINO_IDE} ${MAKE_MAKE_FLAGS}
+# --debug
+ARD_CONSOLE = ${MAKE_MAKE_DIR}/etc/console.${BATCH_EXT} -I ${ARDUINO_IDE} ${ARD_CONSOLE_FLAGS}
+# --debug
+
+${TARGET_DIR} :
+	-${MKDIR} ${TARGET_DIR}
+
+## look for target specific Makefile, or generate it
+TARGET_MAKEFILE := ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}/Makefile
+${TARGET_MAKEFILE} : | ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}
+	${MAKE_MAKE} --board ${TARGET_BOARD} --output ${TARGET_MAKEFILE}
+
+-include ${TARGET_MAKEFILE}
+
+MAKEFILE_TARGET_INCLUDED := true
+#$(info Makefile.target : TARGET_PLATFORM = ${TARGET_PLATFORM})

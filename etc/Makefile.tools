@@ -40,7 +40,7 @@ findall=$1 $(foreach d,$(wildcard $(addsuffix /*/, $1)),$(call subdirs,$d))
 # dump only directories (in fact, directories 
 #subdirs=$(sort $(dir $(call findall, $1)))
 
-subdirs=$(sort $(dir $(wildcard $(1:%/=%)/*/)))
+subdirs=$(filter-out ./,$(sort $(dir $(wildcard $(1:%/=%)/*/))))
 rsubdirs=$1 $(foreach d,$(filter-out $(1:%/=%)/,$(call subdirs,$1)),$(call rsubdirs,$d,$1))
 
 ## wildcards : take a directory and a list of patterns to set as suffix to this dir before calling wildcard
@@ -81,3 +81,5 @@ tools-test:
 
 	$(info wildcards etc, *.sh *.bat => $(call wildcards,etc,*.sh *.bat))
 	$(info wildcards etc/, *.sh *.bat => $(call wildcards,etc/,*.sh *.bat))
+
+MAKEFILE_TOOLS_INCLUDED := true
