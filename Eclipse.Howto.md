@@ -41,8 +41,11 @@ Configure Eclipse
 * Windows > Preferences >  C/C++ > Build > environment
 	* add ARDUINO_IDE = where Arduino IDE is installed
 	* add AMM_DIR = where ArdDude zip file was unzipped
-	* if you're under Windows, add MAKE = ${ARDUINO_IDE}/hardware/arduino/sam/system/CMSIS/Examples/cmsis_example/gcc_arm/make.exe
-	* if you're underlinux, install gnu make and simply define MAKE = make
+	* if you're under Windows
+	  * add MAKE = ${ARDUINO_IDE}/hardware/arduino/sam/system/CMSIS/Examples/cmsis_example/gcc_arm/make.exe
+	  * add TEMP = ${TMP} (yes: with an 'E' on left side and not on right side !)
+	* if you're under linux
+	  * install gnu make and just define MAKE = make
 * Windows > Preferences > General > Editors > File associations :
 	* File types, add, *.ino
 	* Associated Editors, add, C/C++ Editor
