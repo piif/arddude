@@ -93,14 +93,14 @@ ${OUT_PATH}: ${LOCAL_CORE_LIB} ${DEPENDENCIES}
 
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
-console: consoleFlag
+console: ${TARGET_DIR}/consoleFlag
 ifeq (${UPLOAD_PORT},)
   $(error UPLOAD_PORT must be specified)
 endif
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} ${DO_UPLOAD}
 
-consoleFlag: ${OUT_PATH}
-	touch consoleFlag
+${TARGET_DIR}/consoleFlag: ${OUT_PATH}
+	touch ${TARGET_DIR}/consoleFlag
 	$(eval DO_UPLOAD="-u")
 
 # always launch upload, even if binary didn't get compiled
