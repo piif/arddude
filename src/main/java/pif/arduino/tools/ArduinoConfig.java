@@ -51,6 +51,8 @@ public class ArduinoConfig extends BaseNoGui {
 
 		// now that sketchbook path is defined, specific hardware specified in it will be found
 		initPackages();
+		// and set libraries folders
+		onBoardOrPortChange();
 	}
 
 	static public void changePathSeparators(PreferencesMap prefs) {
@@ -257,7 +259,7 @@ public class ArduinoConfig extends BaseNoGui {
 					for (Entry<String, TargetBoard> bdEntry : pfEntry
 							.getValue().getBoards().entrySet()) {
 						if (boardName.equals(bdEntry.getKey())) {
-							logger.info(String.format(
+							logger.debug(String.format(
 									"found board in package %s platform %s",
 									pkg, platform));
 							result = bdEntry.getValue();

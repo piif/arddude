@@ -1,6 +1,7 @@
 package pif.arduino;
 
 import java.io.*;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
@@ -102,8 +103,19 @@ public class MakeMake {
 		}
 		prefs.put("ide_version", "" + BaseNoGui.REVISION);
 		ArduinoConfig.changePathSeparators(prefs);
-//		logger.debug("prefs = " + prefs);
+		logger.debug("prefs = " + prefs);
 
+		List<File> libPath = ArduinoConfig.getLibrariesPath();
+		StringBuffer libPathString = new StringBuffer();
+		// don't use Java 8 String.join method since Arduino IDE comes with Java 6
+		for (int i = 0; i < libPath.size(); i++) {
+			if (i != 0) {
+				libPathString.append(" ");
+			}
+			libPathString.append(libPath.get(i));
+		}
+		logger.debug("libPath = " + libPathString);
+		
 		preferencesHelper helper = new preferencesHelper(prefs, out);
 
 		logger.debug("generating board file");
@@ -120,9 +132,12 @@ public class MakeMake {
 		helper.pref2varAndSet("TOOLCHAIN_DIR", "compiler.path");
 
 		helper.println("\n## entry point for core compilation");
+		helper.raw2var("TARGET_PACKAGE", pf.getContainerPackage().getId());
+		helper.raw2var("TARGET_PLATFORM", pf.getId());
 		helper.pref2varAndSet("HARDWARE_DIR", "runtime.hardware.path");
 		helper.pref2varAndSet("CORE_DIR", "build.core.path");
 		helper.pref2varAndSet("VARIANT_DIR", "build.variant.path");
+		helper.raw2var("LIBRARIES_DIRS", libPathString.toString().replace('\\', '/'));
 		helper.raw2var("INCLUDE_FLAGS", "-I${CORE_DIR} -I${VARIANT_DIR}");
 
 		out.println("\n## C/C++ compiler");
