@@ -36,6 +36,14 @@ For the moment, there's no web site where to download this zip file, so you have
 Configure Eclipse
 --
 
+In following instructions, all pathes must be specified :
+* absolute whenever possible
+* with slashes (not backslashes)
+* ended with /
+* without spaces or special chars. Especially for Arduino IDE, if it's in a "Program Files (x86)" directory, it won't work -> move it.
+Thus, for example : C:/DevTools/Arddude/ and **not** /DevTools/Arddude nor C:\DevTools\Arddude
+
+Ok, follow this instructions :
 * from Help menu, choose "Eclipse Marketplace", search "Eclipse CDT" and install it
 * restart Eclipse
 * Windows > Preferences >  C/C++ > Build > environment

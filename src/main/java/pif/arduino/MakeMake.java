@@ -172,43 +172,43 @@ public class MakeMake {
 		out.println("\n## generate code from c, cpp, ino or S files");
 		out.println("${TARGET_DIR}/%.o: %.c");
 		out.println("\t@${MKDIR} ${@D}");
-		out.println("\t" + helper.recipe("recipe.c.o.pattern",
+		out.println("\t${BIN_PREFIX}" + helper.recipe("recipe.c.o.pattern",
 				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.c.extra_flags", "${CFLAGS_EXTRA}",
-				"source_file", "$<",
+				"source_file", "$(call truepath,$(call truepath,$<))",
 				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.ino");
 		out.println("\t@${MKDIR} ${@D}");
-		out.println("\t" + helper.recipe("recipe.cpp.o.pattern",
+		out.println("\t${BIN_PREFIX}" + helper.recipe("recipe.cpp.o.pattern",
 				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.cpp.extra_flags", "${CXXFLAGS_EXTRA} -x c++",
-				"source_file", "$<",
+				"source_file", "$(call truepath,$<)",
 				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.cpp");
 		out.println("\t@${MKDIR} ${@D}");
-		out.println("\t" + helper.recipe("recipe.cpp.o.pattern",
+		out.println("\t${BIN_PREFIX}" + helper.recipe("recipe.cpp.o.pattern",
 				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.cpp.extra_flags", "${CXXFLAGS_EXTRA}",
-				"source_file", "$<",
+				"source_file", "$(call truepath,$<)",
 				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.S");
 		out.println("\t@${MKDIR} ${@D}");
 		String recipe = helper.recipe("recipe.S.o.pattern",
 				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.S.extra_flags", "${ASFLAGS_EXTRA}",
-				"source_file", "$<",
+				"source_file", "$(call truepath,$<)",
 				"object_file", "$@");
 		if (recipe == null) {
 			out.println("\t$(error No rule to compile this kind of file for this target platform)");
 		} else {
-			out.println("\t" + recipe);
+			out.println("\t${BIN_PREFIX}" + recipe);
 		}
 
 		out.println("\n## generate library");
 		helper.recipe2var("AR", "{compiler.path}{compiler.ar.cmd}");
 		helper.pref2varAndSet("ARFLAGS", "compiler.ar.flags");
         out.println("${TARGET_DIR}/lib%.a:");
-        out.println("\t${AR} ${ARFLAGS} ${ARFLAGS_EXTRA} $@ ${OBJS}");
+        out.println("\t${BIN_PREFIX}${AR} ${ARFLAGS} ${ARFLAGS_EXTRA} $@ ${OBJS}");
 
 		// command line is a bit crazy
 		// => have to generate a full rule
@@ -222,7 +222,7 @@ public class MakeMake {
 //				"+compiler.c.elf.extra_flags", "${ELFFLAGS}",
 //				"object_files", "$(filter-out $(lastword $^),$^)", // /!\ with 's'
 //				"archive_file", "$(subst ${TARGET_DIR}/,,$(lastword $^))") + " ${LDFLAGS}");
-		out.println("\t" + helper.recipe("recipe.c.combine.pattern",
+		out.println("\t${BIN_PREFIX}" + helper.recipe("recipe.c.combine.pattern",
 				"+compiler.c.elf.extra_flags", "",
 				"object_files", "${OBJS}", // /!\ with 's'
 				"archive_file", "${CORE_LIB_NAME}") + " ${LDFLAGS_EXTRA}");
@@ -231,21 +231,21 @@ public class MakeMake {
 		helper.recipe2var("EEP", "{compiler.path}{compiler.objcopy.cmd}");
 		helper.pref2varAndSet("EEPFLAGS", "compiler.objcopy.eep.flags");
         out.println("%.eep:%.elf");
-        out.println("\t${EEP} ${EEPFLAGS} ${EEPFLAGS_EXTRA} $< $@");
+        out.println("\t${BIN_PREFIX}${EEP} ${EEPFLAGS} ${EEPFLAGS_EXTRA} $(call truepath,$<) $@");
 
         String hexRecipe = helper.get("recipe.objcopy.hex.pattern");
         if (hexRecipe.contains(".hex")) {
         	helper.raw2var("UPLOAD_EXT", ".hex");
 	 		helper.recipe2var("HEX", "{compiler.path}{compiler.elf2hex.cmd}");
 			helper.pref2varAndSet("HEXFLAGS", "compiler.elf2hex.flags");
-	        out.println("%.hex:%.size %.elf");
-	        out.println("\t${HEX} ${HEXFLAGS} ${HEXFLAGS_EXTRA} $< $@");
+	        out.println("%.hex:%.elf %.size");
+	        out.println("\t${BIN_PREFIX}${HEX} ${HEXFLAGS} ${HEXFLAGS_EXTRA} $(call truepath,$<) $@");
        } else if (hexRecipe.contains(".bin")) {
         	helper.raw2var("UPLOAD_EXT", ".bin");
 	 		helper.recipe2var("BIN", "{compiler.path}{compiler.elf2hex.cmd}");
 			helper.pref2varAndSet("BINFLAGS", "compiler.elf2hex.flags");
 	        out.println("%.bin:%.elf");
-	        out.println("\t${BIN} ${BINFLAGS} ${BINFLAGS_EXTRA} $< $@");
+	        out.println("\t${BIN_PREFIX}${BIN} ${BINFLAGS} ${BINFLAGS_EXTRA} $(call truepath,$<) $@");
         } else {
         	helper.raw2var("UPLOAD_EXT", "_UNKNOWN");
 	        out.println("$(warning don't know how to generate file to upload)");
@@ -255,7 +255,8 @@ public class MakeMake {
 		// this command has no flags preference
 		helper.raw2var("SIZEFLAGS", "-A");
         out.println("%.size:%.elf");
-        out.println("\t${SIZE} ${SIZEFLAGS} ${SIZEFLAGS_EXTRA} $< > $@");
+        out.println("\t${BIN_PREFIX}${SIZE} ${SIZEFLAGS} ${SIZEFLAGS_EXTRA} $(call truepath,$<) > $@");
+        out.println("\tcat $@");
 
 		out.println("\n## end of file");
 

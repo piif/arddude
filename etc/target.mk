@@ -1,5 +1,3 @@
-ARDDUDE_DIR ?= ${AMM_DIR}
-
 ifeq (${MAKEFILE_TOOLS_INCLUDED},)
   include ${ARDDUDE_DIR}/etc/tools.mk
 endif
@@ -27,6 +25,11 @@ ${TARGET_MAKEFILE} : | ${ARDDUDE_DIR}/target/${TARGET_BOARD}
 	${MAKE_MAKE} --board ${TARGET_BOARD} --output ${TARGET_MAKEFILE}
 
 -include ${TARGET_MAKEFILE}
+
+ifneq (${ARCH},unix)
+  # have to cd into Arduino IDE directory to let binaries find cygwin dll
+  BIN_PREFIX := cd ${ARDUINO_IDE} ;
+endif
 
 MAKEFILE_TARGET_INCLUDED := true
 #$(info target.mk : TARGET_PLATFORM = ${TARGET_PLATFORM})

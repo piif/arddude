@@ -35,10 +35,6 @@ ifneq (${SOURCE_EXCLUDES},)
   override SOURCE_DIRS := $(filter-out ${SOURCE_EXCLUDES},${SOURCE_DIRS})
   #$(info main after excludes ${SOURCE_EXCLUDES} : SOURCE_DIRS=${SOURCE_DIRS})
 endif
-ifneq (${SOURCE_EXCLUDE_PATTERNS},)
-  override SOURCE_DIRS := $(call filter-out-substr,${SOURCE_EXCLUDE_PATTERNS},${SOURCE_DIRS})
-  #$(info main after exclude patterns ${SOURCE_EXCLUDE_PATTERNS}: SOURCE_DIRS=${SOURCE_DIRS})
-endif
 $(info main : SOURCE_DIRS=${SOURCE_DIRS})
 
 ## by default, look for a main source file with project name or "main" as basename 
@@ -56,6 +52,10 @@ endif
 
 # call $sort to avoid duplicates between MAIN_SOURCE and found sources
 ALL_SOURCES := $(sort ${MAIN_SOURCE} $(foreach d,${SOURCE_DIRS},$(call wildcards,$d,*.c *.cpp *.ino)))
+ifneq (${SOURCE_EXCLUDE_PATTERNS},)
+  ALL_SOURCES := $(call filter-out-substr,${SOURCE_EXCLUDE_PATTERNS},${ALL_SOURCES})
+  #$(info main after exclude patterns ${SOURCE_EXCLUDE_PATTERNS}: ALL_SOURCES=${ALL_SOURCES})
+endif
 
 EXTERNAL_SOURCE_DIRS := $(filter-out ${CALLER_DIR}/%,${SOURCE_ROOTDIRS}))
 vpath %.c ${EXTERNAL_SOURCE_DIRS}
@@ -146,7 +146,7 @@ ifeq (${MAKECMDGOALS},discovery)
 endif
 
 discovery:
-	${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST} ${DISCOVERY_FILTER}
+	${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA} ${CMD_LAST} ${DISCOVERY_FILTER}
 
 clean:
 	rm -rf ${TARGET_DIR}
