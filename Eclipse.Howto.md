@@ -40,7 +40,7 @@ Configure Eclipse
 * restart Eclipse
 * Windows > Preferences >  C/C++ > Build > environment
 	* add ARDUINO_IDE = where Arduino IDE is installed
-	* add AMM_DIR = where ArdDude zip file was unzipped
+	* add ARDDUDE_DIR = where ArdDude zip file was unzipped
 	* if you're under Windows
 	  * add MAKE = ${ARDUINO_IDE}/hardware/arduino/sam/system/CMSIS/Examples/cmsis_example/gcc_arm/make.exe
 	  * add TEMP = ${TMP} (yes: with an 'E' on left side and not on right side !)
@@ -55,7 +55,7 @@ Configure Eclipse
 	set "Command to get compiler specs" to :
 	${MAKE} TARGET_BOARD=${ConfigName} CMD="${COMMAND} ${FLAGS} -E -P -v -dD '${INPUTS}'" discovery
 
-Create a new project
+Create a first project
 --
 
 * New project > C/C++ > "Makefile project from existing code"
@@ -64,7 +64,7 @@ Create a new project
 		* unset "use default build command"
 		* Replace command by : ${MAKE} TARGET_BOARD=${ConfigName}
 		* unset "generate Makefiles"
-		* set "Build directory" to : ${workspace_loc}/
+		* set "Build directory" to : ${ProjDirPath}
 	* C/C++ build > Toolchain Editor, configuration "All configurations"
 		* unset "Display compatible …."
 			* Current Toolchain : Choose one of GCC chains, according to your environment
@@ -82,12 +82,19 @@ Create a new project
 		* set "Enable specific ..." and "Enable indexer"
 		* on bottom, set "Use active build configuration"
 
+Create another project
+--
+* New project > C/C++ > "Makefile project from existing code"
+* Project properties -> CDT -> C/C++ build, button "Manage configurations"
+  * new , select "Import from projects" , choose a configuration from first project
+* take a moment to verify that settings above are correct
+
 Create your Makefile
 --
 * Create a file names Makefile (with upper M) in project root directory.
 * open it
 * you must at least type in
-  include ${AMM_DIR}/etc/Makefile.main
+  include ${ARDDUDE_DIR}/etc/main.mk
 * before this line, you can fix some variables like default upload port, main program name, dependencies
   details to be continued ...
 

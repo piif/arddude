@@ -1,5 +1,5 @@
 # some "functions" and tools to deal with pathes whatever the environment
-#$(info Makefile.tools)
+#$(info tools.mk)
 
 ifneq (${CYGWIN_HOME},)
   ARCH:=cygwin

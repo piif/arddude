@@ -1,4 +1,4 @@
-#$(info Makefile.common)
+#$(info common.mk)
 
 ## verify that ARDUINO_IDE and TARGET_BOARD are defined
 ifeq (${TARGET_BOARD},)
@@ -6,7 +6,7 @@ ifeq (${TARGET_BOARD},)
 endif
 
 ifeq (${ARDUINO_IDE},)
-  ifneq ($(wildcard ${MAKE_MAKE_DIR}/target/${TARGET_BOARD}/Makefile),)
+  ifneq ($(wildcard ${ARDDUDE_DIR}/target/${TARGET_BOARD}/Makefile),)
     $(info *** ARDUINO_IDE not defined, will use value from target makefile ***)
   else
     ifeq ($(OS),Windows_NT)
@@ -23,12 +23,12 @@ ifeq (${ARDUINO_IDE},)
 endif
 
 ifeq (${MAKEFILE_TARGET_INCLUDED},)
-  include ${MAKE_MAKE_DIR}/etc/Makefile.target
+  include ${ARDDUDE_DIR}/etc/target.mk
 endif
 
 ## and core lib
 #CORE_LIB_DIR := ${TARGET_DIR}
-CORE_LIB_DIR := $(call truepath,${MAKE_MAKE_DIR}/target/${TARGET_BOARD})
+CORE_LIB_DIR := $(call truepath,${ARDDUDE_DIR}/target/${TARGET_BOARD})
 #VPATH += ${CORE_LIB_DIR}
 CORE_LIB_NAME := libCore.a
 CORE_LIB := ${CORE_LIB_DIR}/${CORE_LIB_NAME}

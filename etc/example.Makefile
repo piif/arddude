@@ -18,7 +18,7 @@ export UPLOAD_PORT ?= com4
 # export MAIN_SOURCE=my_main.cpp
 
 ## then include AMM main Makefile
-include $(AMM_DIR)/etc/Makefile.main
+include $(AMM_DIR)/etc/main.mk
 
 ## after this inclusion, we may add some stuff like our include path
 INCLUDE_FLAGS += -Ilibraries

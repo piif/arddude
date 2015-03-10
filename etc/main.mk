@@ -1,9 +1,9 @@
 default: console
-#$(info Makefile.main)
+#$(info main.mk)
 
-MAKE_MAKE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
+ARDDUDE_DIR := $(dir $(lastword ${MAKEFILE_LIST}))..
 ifeq (${MAKEFILE_TOOLS_INCLUDED},)
-  include ${MAKE_MAKE_DIR}/etc/Makefile.tools
+  include ${ARDDUDE_DIR}/etc/tools.mk
 endif
 #$(info ARCH=${ARCH})
 
@@ -12,6 +12,8 @@ endif
 ## MAKEFILE_LIST 1st item is first caller Makefile => deduce caller project dir
 CALLER_DIR := $(call truepath,$(dir $(firstword ${MAKEFILE_LIST})))
 #$(info main : CALLER_DIR=${CALLER_DIR})
+
+include ${ARDDUDE_DIR}/etc/target.mk
 
 ## PROJECT_NAME may be already defined, else, use project dirname
 PROJECT_NAME ?= $(notdir ${CALLER_DIR})
@@ -65,9 +67,10 @@ OBJS := $(foreach root,${CALLER_DIR} ${EXTERNAL_SOURCE_DIRS},$(subst ${root},${T
 $(info main OBJS=${OBJS})
 ## ok .. basic variables are defined, we can call common makefile
 
-include ${MAKE_MAKE_DIR}/etc/Makefile.common
-
 ## now, main target dir and core libs one are known
+
+objects: ${OBJS}
+include ${ARDDUDE_DIR}/etc/common.mk
 
 .SECONDARY: ${OBJS}
 
@@ -75,7 +78,7 @@ include ${MAKE_MAKE_DIR}/etc/Makefile.common
 CFLAGS_EXTRA += -DPIF_TOOL_CHAIN
 CXXFLAGS_EXTRA += -DPIF_TOOL_CHAIN
 
-#$(info main : TARGET_DIR=${TARGET_DIR})
+$(info main : TARGET_DIR=${TARGET_DIR})
 
 ## deduce out file name
 ifeq (${TODO},lib)
@@ -97,7 +100,7 @@ ${LOCAL_CORE_LIB}: ${CORE_LIB} | ${TARGET_DIR}
 
 export ARDUINO_IDE
 ${CORE_LIB}:
-	${MAKE} -C ${MAKE_MAKE_DIR} -f etc/Makefile.core
+	${MAKE} -C ${ARDDUDE_DIR} -f etc/core.mk
 
 ${OUT_PATH}: ${LOCAL_CORE_LIB} ${OBJS} ${DEPENDENCIES}
 
@@ -139,10 +142,11 @@ ifeq (${MAKECMDGOALS},discovery)
     $(error unexpected command ${CMD_FISRT})
   endif
 
+  DISCOVERY_FILTER := 2>&1|sed 's|/cygdrive/\(.\)|\1:|g'
 endif
 
 discovery:
-	${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST}
+	${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${CMD_LAST} ${DISCOVERY_FILTER}
 
 clean:
 	rm -rf ${TARGET_DIR}
