@@ -51,8 +51,6 @@ public class ArduinoConfig extends BaseNoGui {
 
 		// now that sketchbook path is defined, specific hardware specified in it will be found
 		initPackages();
-		// and set libraries folders
-		onBoardOrPortChange();
 	}
 
 	static public void changePathSeparators(PreferencesMap prefs) {
@@ -284,6 +282,9 @@ public class ArduinoConfig extends BaseNoGui {
 		if (options != null) {
 			setOptions(result, options);
 		}
+
+		// set libraries folders
+		onBoardOrPortChange();
 
 		return result;
 	}

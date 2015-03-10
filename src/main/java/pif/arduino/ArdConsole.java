@@ -40,6 +40,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 		options.addOption("P", "ports", false, "list available ports");
 		options.addOption("p", "port", true, "set port to connect to");
+		options.addOption("s", "baudrate", true, "set port baudrate");
 
 		options.addOption("f", "file", true, "file to scan / upload");
 		options.addOption("u", "upload", false, "launch upload at startup");
@@ -114,6 +115,9 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (commandLine.hasOption('b')) {
 			setBoard(commandLine.getOptionValue('b'));
 		}
+		if (commandLine.hasOption('s')) {
+			ArduinoConfig.baudrate = Integer.parseInt(commandLine.getOptionValue('s'));
+		}
 
 		if (commandLine.hasOption('f')) {
 			uploadFile = new File(commandLine.getOptionValue('f'));
@@ -176,6 +180,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 				+ "  !port xxx : set current serial port (like -p option)\n"
 				+ "  !board xxx : set current board (like -b option)\n"
 				+ "  !connect and !disconnect : as the name suggests ...\n"
+				+ "  !baudrate nn : set baudrate\n"
 				+ "  !reset : try to reset serial port, then reconnect if was connected (useful after upload in some cases)\n"
 				+ "  !upload : launch upload then reconnect if was connected\n"
 				+ "  !verbose [0,off]: set/reset verbosity flag\n"
@@ -379,6 +384,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	protected void status(PrintStream output) {
 		if (port != null) {
 			output.println("Configured to connect on port " + port.address);
+			output.println(" with baudrate " + ArduinoConfig.baudrate);
 			if (boardName != null) {
 				output.println(" as platform " + boardName);
 			}
