@@ -31,7 +31,7 @@ endif
 #$(info main after truepath: SOURCE_DIRS=${SOURCE_DIRS})
 
 ifneq (${SOURCE_EXCLUDES},)
-  override SOURCE_EXCLUDES := $(foreach d,${SOURCE_EXCLUDES},$(call truepath,$d)/%)
+  override SOURCE_EXCLUDES := $(addsuffix /%,$(foreach d,${SOURCE_EXCLUDES},$(call truepath,$d)))
   override SOURCE_DIRS := $(filter-out ${SOURCE_EXCLUDES},${SOURCE_DIRS})
   #$(info main after excludes ${SOURCE_EXCLUDES} : SOURCE_DIRS=${SOURCE_DIRS})
 endif
@@ -64,7 +64,7 @@ vpath %.cpp ${EXTERNAL_SOURCE_DIRS}
 # deduce all .o files, with path names relative to target dir
 ABS_OBJS := $(addsuffix .o,$(basename ${ALL_SOURCES}))
 OBJS := $(foreach root,${CALLER_DIR} ${EXTERNAL_SOURCE_DIRS},$(subst ${root},${TARGET_DIR},$(filter ${root}/%,${ABS_OBJS})))
-$(info main OBJS=${OBJS})
+#$(info main OBJS=${OBJS})
 ## ok .. basic variables are defined, we can call common makefile
 
 ## now, main target dir and core libs one are known
