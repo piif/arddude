@@ -173,28 +173,28 @@ public class MakeMake {
 		out.println("${TARGET_DIR}/%.o: %.c");
 		out.println("\t@${MKDIR} ${@D}");
 		out.println("\t" + helper.recipe("recipe.c.o.pattern",
-				"includes", "${INCLUDE_FLAGS}",
+				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.c.extra_flags", "${CFLAGS_EXTRA}",
 				"source_file", "$<",
 				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.ino");
 		out.println("\t@${MKDIR} ${@D}");
 		out.println("\t" + helper.recipe("recipe.cpp.o.pattern",
-				"includes", "${INCLUDE_FLAGS}",
+				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.cpp.extra_flags", "${CXXFLAGS_EXTRA} -x c++",
 				"source_file", "$<",
 				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.cpp");
 		out.println("\t@${MKDIR} ${@D}");
 		out.println("\t" + helper.recipe("recipe.cpp.o.pattern",
-				"includes", "${INCLUDE_FLAGS}",
+				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.cpp.extra_flags", "${CXXFLAGS_EXTRA}",
 				"source_file", "$<",
 				"object_file", "$@"));
 		out.println("${TARGET_DIR}/%.o: %.S");
 		out.println("\t@${MKDIR} ${@D}");
 		String recipe = helper.recipe("recipe.S.o.pattern",
-				"includes", "${INCLUDE_FLAGS}",
+				"includes", "${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA}",
 				"+compiler.S.extra_flags", "${ASFLAGS_EXTRA}",
 				"source_file", "$<",
 				"object_file", "$@");
@@ -214,7 +214,7 @@ public class MakeMake {
 		// => have to generate a full rule
 		out.println("\n## generate binary from .o files");
 		helper.pref2varAndSet("LDFLAGS", "compiler.c.elf.flags");
-		out.println("${TARGET_DIR}/%.elf: ${OBJS}");
+		out.println("${TARGET_DIR}/%.elf: objects");
 		// recipes contain a "{build.path}/{archive_file}" to include core lib, but it doesn't match our path constraints
 		// => fake it by putting last object in it, and other ones in {object_files}
 		// + have to remove target_dir from this last entry
@@ -223,9 +223,9 @@ public class MakeMake {
 //				"object_files", "$(filter-out $(lastword $^),$^)", // /!\ with 's'
 //				"archive_file", "$(subst ${TARGET_DIR}/,,$(lastword $^))") + " ${LDFLAGS}");
 		out.println("\t" + helper.recipe("recipe.c.combine.pattern",
-				"+compiler.c.elf.extra_flags", "${LDFLAGS_EXTRA}",
-				"object_files", "$^", // /!\ with 's'
-				"archive_file", "${CORE_LIB_NAME}"));
+				"+compiler.c.elf.extra_flags", "",
+				"object_files", "${OBJS}", // /!\ with 's'
+				"archive_file", "${CORE_LIB_NAME}") + " ${LDFLAGS_EXTRA}");
 
 		out.println("\n## convert elf file");
 		helper.recipe2var("EEP", "{compiler.path}{compiler.objcopy.cmd}");
@@ -238,7 +238,7 @@ public class MakeMake {
         	helper.raw2var("UPLOAD_EXT", ".hex");
 	 		helper.recipe2var("HEX", "{compiler.path}{compiler.elf2hex.cmd}");
 			helper.pref2varAndSet("HEXFLAGS", "compiler.elf2hex.flags");
-	        out.println("%.hex:%.elf");
+	        out.println("%.hex:%.size %.elf");
 	        out.println("\t${HEX} ${HEXFLAGS} ${HEXFLAGS_EXTRA} $< $@");
        } else if (hexRecipe.contains(".bin")) {
         	helper.raw2var("UPLOAD_EXT", ".bin");
@@ -254,8 +254,8 @@ public class MakeMake {
 		helper.recipe2var("SIZE", "{compiler.path}{compiler.size.cmd}");
 		// this command has no flags preference
 		helper.raw2var("SIZEFLAGS", "-A");
-        out.println("size:%.elf");
-        out.println("\t${SIZE} ${SIZEFLAGS} ${SIZEFLAGS_EXTRA} $<");
+        out.println("%.size:%.elf");
+        out.println("\t${SIZE} ${SIZEFLAGS} ${SIZEFLAGS_EXTRA} $< > $@");
 
 		out.println("\n## end of file");
 
