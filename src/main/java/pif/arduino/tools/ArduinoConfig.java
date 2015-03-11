@@ -205,8 +205,11 @@ public class ArduinoConfig extends BaseNoGui {
 
 	public static void setBoard(TargetBoard board) {
 		ArduinoConfig.selectBoard(board);
-		baudrate = Integer.parseInt(
-				board.getPreferences().get("upload.speed"));
+		String br = board.getPreferences().get("upload.speed");
+		if (br != null) {
+			baudrate = Integer.parseInt(br);
+			logger.info("Setting baudrate to " + baudrate);
+		}
 	}
 
 	public static TargetBoard setBoard(String boardName) {
