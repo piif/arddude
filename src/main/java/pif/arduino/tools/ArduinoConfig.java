@@ -205,10 +205,13 @@ public class ArduinoConfig extends BaseNoGui {
 
 	public static void setBoard(TargetBoard board) {
 		ArduinoConfig.selectBoard(board);
-		String br = board.getPreferences().get("upload.speed");
+		onBoardOrPortChange();
+		String br = getBoardPreferences().get("upload.speed");
 		if (br != null) {
 			baudrate = Integer.parseInt(br);
 			logger.info("Setting baudrate to " + baudrate);
+		} else {
+			logger.debug("No default baudrate found");
 		}
 	}
 
@@ -280,14 +283,11 @@ public class ArduinoConfig extends BaseNoGui {
 			return null;
 		}
 
-		ArduinoConfig.selectBoard(result);
+		ArduinoConfig.setBoard(result);
 
 		if (options != null) {
 			setOptions(result, options);
 		}
-
-		// set libraries folders
-		onBoardOrPortChange();
 
 		return result;
 	}

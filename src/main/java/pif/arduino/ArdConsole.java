@@ -382,13 +382,13 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	protected void status(PrintStream output) {
+		if (boardName != null) {
+			output.println("Target platform is " + boardName);
+		}
 		if (port != null) {
 			output.println("Configured to connect on port " + port.address);
-			output.println(" with baudrate " + ArduinoConfig.baudrate);
-			if (boardName != null) {
-				output.println(" as platform " + boardName);
-			}
 		}
+		output.println("Baudrate is " + ArduinoConfig.baudrate);
 		if (uploadFile != null) {
 			output.println("Scanning file " + uploadFile);
 		}

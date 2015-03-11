@@ -136,6 +136,7 @@ public class MakeMake {
 		helper.raw2var("TARGET_PLATFORM", pf.getId());
 		helper.raw2var("TARGET_MCU", "build.mcu");
 		helper.raw2var("TARGET_F_CPU", "build.f_cpu");
+		helper.raw2var("TARGET_BAUDRATE", "upload.speed");
 		helper.pref2varAndSet("HARDWARE_DIR", "runtime.hardware.path");
 		helper.pref2varAndSet("CORE_DIR", "build.core.path");
 		helper.pref2varAndSet("VARIANT_DIR", "build.variant.path");
