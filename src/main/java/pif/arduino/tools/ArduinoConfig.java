@@ -2,6 +2,7 @@ package pif.arduino.tools;
 
 import static processing.app.I18n._;
 
+import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -18,6 +19,7 @@ import processing.app.debug.TargetBoard;
 import processing.app.debug.TargetPackage;
 import processing.app.debug.TargetPlatform;
 import processing.app.helpers.PreferencesMap;
+import processing.app.helpers.ProcessUtils;
 
 public class ArduinoConfig extends BaseNoGui {
 	private static Logger logger = Logger.getLogger(ArduinoConfig.class);
@@ -26,6 +28,7 @@ public class ArduinoConfig extends BaseNoGui {
 
 	static public void setIdePath(String arduinoIdePath) {
 		System.setProperty("user.dir", arduinoIdePath);
+		ProcessUtils.pwd = new File(arduinoIdePath);
 	}
 
 	// Arduino IDE path must be fixed before this class is accessed

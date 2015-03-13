@@ -107,7 +107,7 @@ ${OUT_PATH}: ${LOCAL_CORE_LIB} ${OBJS} ${DEPENDENCIES}
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
 console: ${TARGET_DIR}/consoleFlag
-	$(ifeq ${UPLOAD_PORT},,$(error UPLOAD_PORT must be specified))
+	$(if ${UPLOAD_PORT},,$(error UPLOAD_PORT must be specified))
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} ${DO_UPLOAD}
 
 ${TARGET_DIR}/consoleFlag: ${OUT_PATH}
@@ -116,7 +116,7 @@ ${TARGET_DIR}/consoleFlag: ${OUT_PATH}
 
 # always launch upload, even if binary didn't get compiled
 upload: ${OUT_PATH}
-	$(ifeq ${UPLOAD_PORT},,$(error UPLOAD_PORT must be specified))
+	$(if ${UPLOAD_PORT},,$(error UPLOAD_PORT must be specified))
 	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} -u -x
 
 .PHONY: bin lib dependencies corelib upload console discovery
@@ -142,11 +142,13 @@ ifeq (${MAKECMDGOALS},discovery)
     $(error unexpected command ${CMD_FISRT})
   endif
 
-  DISCOVERY_FILTER := 2>&1|sed 's|/cygdrive/\(.\)|\1:|g'
+#  ifeq (${ARCH},cygwin)
+#    DISCOVERY_FILTER := 2>&1|sed 's|/cygdrive/\(.\)|\1:|g'
+#  endif
 endif
 
 discovery:
-	${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA} ${CMD_LAST} ${DISCOVERY_FILTER}
+	${BIN_PREFIX} ${DISCOVERY_CMD} ${CMD_REMAIN} ${DISCOVERY_FLAGS} ${INCLUDE_FLAGS} ${INCLUDE_FLAGS_EXTRA} ${CMD_LAST} ${DISCOVERY_FILTER}
 
 clean:
 	rm -rf ${TARGET_DIR}

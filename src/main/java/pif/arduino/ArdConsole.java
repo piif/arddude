@@ -13,7 +13,7 @@ import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 
 import pif.arduino.tools.*;
-import cc.arduino.packages.uploaders.SerialUploader;
+import cc.arduino.packages.uploaders.MySerialUploader;
 import processing.app.PreferencesData;
 import processing.app.Serial;
 import processing.app.debug.TargetBoard;
@@ -59,7 +59,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	protected File uploadFile;
 	String uploadFilePath, uploadFileName;
 	protected FileScanner scanner;
-	protected SerialUploader uploader;
+	protected MySerialUploader uploader;
 
 	// "arduino IDE" serial object
 	protected MySerial serial = null;
@@ -415,7 +415,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		logger.info("** launching upload **");
 
 		if (uploader == null) {
-			uploader = new SerialUploader();
+			uploader = new MySerialUploader();
 		}
 		short stateBefore = state;
 		switch(state) {
