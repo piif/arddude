@@ -28,11 +28,10 @@ This utility is made to be called from makefiles available in etc directory.
 It generates Makefile rules from arduino descriptor files, to run compilation tools included in Arduino IDE
 Those makefiles are ready to launch from Eclipse environment, or from command line.
 
-Documentation about this tool chain is still TODO ... hold the line
+Documentation about this tool chain is still uncomplete, but Eclipse.Howto.md file give indication on how to use it from Eclipse IDE.
 
 TODO
 ----
-* howto for Eclipse IDE
 * auto-completion in ArdConsole
 * deep testing
 
