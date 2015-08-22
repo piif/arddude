@@ -51,11 +51,12 @@ else
 endif
 
 # call $sort to avoid duplicates between MAIN_SOURCE and found sources
-ALL_SOURCES := $(sort ${MAIN_SOURCE} $(foreach d,${SOURCE_DIRS},$(call wildcards,$d,*.c *.cpp *.ino)))
+ALL_SOURCES := $(foreach d,${SOURCE_DIRS},$(call wildcards,$d,*.c *.cpp *.ino))
 ifneq (${SOURCE_EXCLUDE_PATTERNS},)
   ALL_SOURCES := $(call filter-out-substr,${SOURCE_EXCLUDE_PATTERNS},${ALL_SOURCES})
   #$(info main after exclude patterns ${SOURCE_EXCLUDE_PATTERNS}: ALL_SOURCES=${ALL_SOURCES})
 endif
+ALL_SOURCES := $(sort ${MAIN_SOURCE} ${ALL_SOURCES})
 
 EXTERNAL_SOURCE_DIRS := $(filter-out ${CALLER_DIR}/%,${SOURCE_ROOTDIRS}))
 vpath %.c ${EXTERNAL_SOURCE_DIRS}
