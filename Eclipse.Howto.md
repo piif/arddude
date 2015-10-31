@@ -16,10 +16,11 @@ You need :
 
 Install Arduino IDE
 --
-for details, look at arduino.cc)
+for details, look at arduino.cc
 
-Install Eclipse (for details, look at eclipse.org)
+Install Eclipse
 --
+for details, look at eclipse.org
 
 Install ArdDude
 --

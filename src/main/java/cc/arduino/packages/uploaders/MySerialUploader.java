@@ -26,11 +26,13 @@ public class MySerialUploader extends SerialUploader {
 	public boolean uploadUsingPreferences(File sourcePath, String buildPath,
 			String className, boolean usingProgrammer,
 			List<String> warningsAccumulator) throws Exception {
-		logger.debug("uploadUsingProgrammer " + verbose);
+		logger.debug("uploadUsingPreferences(" + className +
+				", usingProgrammer=" + usingProgrammer + ")");
 		TargetPlatform targetPlatform = BaseNoGui.getTargetPlatform();
 		PreferencesMap prefs = PreferencesData.getMap();
 		prefs.putAll(BaseNoGui.getBoardPreferences());
 		String tool = prefs.getOrExcept("upload.tool");
+		logger.debug("upload.tool = " + tool);
 		if (tool.contains(":")) {
 			String[] split = tool.split(":", 2);
 			targetPlatform = BaseNoGui.getCurrentTargetPlatformFromPackage(split[0]);
@@ -41,7 +43,7 @@ public class MySerialUploader extends SerialUploader {
 		// if no protocol is specified for this board, assume it lacks a
 		// bootloader and upload using the selected programmer.
 		if (usingProgrammer || prefs.get("upload.protocol") == null) {
-			logger.debug("uploadUsingProgrammer");
+			logger.debug("uploadUsingProgrammer -> " + PreferencesData.get("programmer"));
 			return uploadUsingProgrammer(buildPath, className);
 		}
 

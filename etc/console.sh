@@ -7,7 +7,9 @@ JAR="$(/bin/ls -d1 $ROOTDIR/target/ArdDude-*-shaded.jar $ROOTDIR/lib/arddude.jar
 MAIN=pif.arduino.ArdConsole
 
 if [ "$OSTYPE" = "cygwin" ] ; then
-	JAVA="$(/bin/ls -d1 /cygdrive/c/Program*/Java/*/bin/java | tail -1)"
+	if [ -z "$JAVA" ] ; then
+		JAVA="$(/bin/ls -d1 /cygdrive/c/Program*/Java/*/bin/java | tail -1)"
+	fi
 	JAR=$(cygpath -w "$JAR")
 	options="-cp $JAR"
 
@@ -28,6 +30,16 @@ if [ "$OSTYPE" = "cygwin" ] ; then
 	"$JAVA" $options $MAIN "$@"
 	stty $TTY_STATE
 else
-	options="-cp $JAR"
-	exec java $options $MAIN "$@"
+	if [ -z "$JAVA" ] ; then
+		if which java > /dev/null 2>&1 ; then
+			JAVA=$(which java)
+		elif [ -e $ARDUINO_IDE/bin/java ] ; then
+			JAVA=$ARDUINO_IDE/bin/java
+		else
+			echo "Can't find java path, set JAVA variable"
+			exit 1
+		fi
+	fi
+	options="-cp $JAR:$(ls $ARDUINO_IDE/lib/*jar 2> /dev/null| tr '\n' ':')"
+	exec $JAVA $options $MAIN "$@"
 fi

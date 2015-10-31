@@ -34,7 +34,8 @@ TODO
 ----
 * auto-completion in ArdConsole
 * deep testing
-
+* test console from dos, cygwin ... -> see https://github.com/mintty/mintty https://github.com/git-for-windows/git/blob/master/compat/winansi.c (isatty) and https://github.com/mintty/mintty/issues/56
+ 
 Known issues
 ----
 * have to reset line at ArdConsole launch from linux (at least with uno)
