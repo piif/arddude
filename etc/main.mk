@@ -104,12 +104,13 @@ ${CORE_LIB}:
 	${MAKE} -C ${ARDDUDE_DIR} -f etc/core.mk
 
 ${OUT_PATH}: ${LOCAL_CORE_LIB} ${OBJS} ${DEPENDENCIES}
+#${OUT_PATH}: ${CORE_LIB} ${OBJS} ${DEPENDENCIES}
 
 # try to launch upload only if binary got compiled again
 DO_UPLOAD=""
 console: ${TARGET_DIR}/consoleFlag
 	$(if ${UPLOAD_PORT},,$(error UPLOAD_PORT must be specified))
-	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} ${DO_UPLOAD}
+	${ARD_CONSOLE} -b ${TARGET_BOARD} -p ${UPLOAD_PORT} -f ${OUT_PATH} ${UPLOAD_OPTIONS} ${DO_UPLOAD}
 
 ${TARGET_DIR}/consoleFlag: ${OUT_PATH}
 	touch ${TARGET_DIR}/consoleFlag
