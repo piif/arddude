@@ -32,10 +32,21 @@ Documentation about this tool chain is still uncomplete, but Eclipse.Howto.md fi
 
 TODO
 ----
+About serial console :
+
 * auto-completion in ArdConsole
 * deep testing
+* solve parasite line feed
 * test console from dos, cygwin ... -> see https://github.com/mintty/mintty https://github.com/git-for-windows/git/blob/master/compat/winansi.c (isatty) and https://github.com/mintty/mintty/issues/56
+
+About tools chain :
+
+* upload thru "arduino as isp" doesn't work, and some parameters are not taken
+  (baudrate with sanguino)
+* adapt to newer arduino IDE versions
+* strange bahevior with custom libcore (tiny without millis) 
  
 Known issues
 ----
 * have to reset line at ArdConsole launch from linux (at least with uno)
+* inline help is out to date

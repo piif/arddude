@@ -18,6 +18,10 @@ import processing.app.PreferencesData;
 import processing.app.Serial;
 import processing.app.debug.TargetBoard;
 
+/**
+ * Main class for serial console
+ * @author pif
+ */
 public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHandler {
 	private static Logger logger = Logger.getLogger(ArdConsole.class);
 
@@ -48,7 +52,8 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		options.addOption("d", "debug", false, "set debug level");
 
 		options.addOption("x", "exit", false, "exit after dump commands instead of launching console");
-		options.addOption("r", "raw", false, "raw mode : dumps list only ids, console is raw, without history nor editing facilities");
+		options.addOption("r", "raw", false, "raw mode : dump commands list only ids, console is raw, no history nor editing facilities");
+		options.addOption("c", "command", true, "comma separated list of commands to send after connection");
 	}
 
 	protected static boolean rawMode = false;
@@ -66,6 +71,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	protected Console console;
 
+	/**
+	 * parse command line, load arduino config and instantiate a ArdConsole
+	 * @param args
+	 */
 	public static void main(String[] args) {
 		CommandLine commandLine = null;
 		try {
@@ -108,6 +117,11 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		new ArdConsole(commandLine);
 	}
 
+	/**
+	 * initialize board, port ..., launch file scanner if file specified,
+	 * launch console and connect
+	 * @param commandLine
+	 */
 	ArdConsole(CommandLine commandLine) {
 		if (commandLine.hasOption('p')) {
 			setPort(commandLine.getOptionValue('p'));
@@ -161,6 +175,11 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			connect();
 		}
 		console.start();
+		if (commandLine.hasOption('c')) {
+			for (String cmd : commandLine.getOptionValue('c').split(",")) {
+				console.handleCommand(cmd);
+			}
+		}
 	}
 
 	protected static void usage(int exitCode) {
