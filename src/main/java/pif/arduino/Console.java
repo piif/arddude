@@ -118,12 +118,12 @@ public class Console extends Thread {
 	/*
 	 * peer sends data it receives thru this method
 	 */
-	public void onIncomingData(byte data[]) {
+	public void onIncomingData(byte data[], int length) {
 		String toDisplay;
 		switch(displayMode) {
 		case MODE_ASCII:
-			StringBuffer sb = new StringBuffer(data.length);
-			for (int i = 0; i < data.length; i++) {
+			StringBuffer sb = new StringBuffer(length);
+			for (int i = 0; i < length; i++) {
 				if (data[i] == '\r') {
 					sb.append("\\r");
 				} else if(data[i] == '\n' || (data[i] >= 32 && data[i] < 128)) {
@@ -135,10 +135,10 @@ public class Console extends Thread {
 			toDisplay = sb.toString();
 			break;
 		case MODE_HEX:
-			toDisplay = hexTools.toHexDump(data);
+			toDisplay = hexTools.toHexDump(data, length);
 			break;
 		default:
-			toDisplay = new String(data);
+			toDisplay = new String(data, 0, length);
 		}
 		try {
 			console.insertString(toDisplay);

@@ -14,14 +14,17 @@ public class hexTools {
 	}
 
 	static protected String hexDumpTemplate =
-			".. .. .. .. .. .. .. ..  .. .. .. .. .. .. .. .. : ................";
+			".. .. .. .. .. .. .. ..  .. .. .. .. .. .. .. .. :                 ";
 
 	static public String toHexDump(byte data[]) {
-		StringBuffer result = new StringBuffer(data.length * 4);
+		return toHexDump(data, data.length);
+	}
+	static public String toHexDump(byte data[], int length) {
+		StringBuffer result = new StringBuffer(length * 4);
 		StringBuffer line = null;
 		// position into template for hex part / ascii part
 		int i, h = 0, a = 0;
-		for (i = 0; i < data.length; i++) {
+		for (i = 0; i < length; i++) {
 			if (i % 16 == 0) {
 				// ended a line -> append it to result, excepted at start of loop
 				if (i != 0) {
