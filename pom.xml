@@ -9,17 +9,19 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<!-- arduino.ide.basedir>/opt/arduino-1.6.0/</arduino.ide.basedir -->
-		<arduino.ide.basedir>C:/DevTools/arduino-1.6.0/</arduino.ide.basedir>
+		<arduino.ide.basedir>/opt/arduino-1.6.0/</arduino.ide.basedir>
+		<!-- arduino.ide.basedir>C:/DevTools/arduino-1.6.0/</arduino.ide.basedir -->
 		<arduino.ide.corejar>${arduino.ide.basedir}/lib/arduino-core.jar</arduino.ide.corejar>
-		<app.main.class>pif.arduino.ArdDude</app.main.class>
+		<app.main.class>pif.arduino.ArdConsole</app.main.class>
 	</properties>
 
 	<profiles>
 		<profile>
 			<id>eclipse</id>
 			<properties>
-				<arduino.ide.corejar>C:/SRC/GitHub/Arduino/arduino-core/arduino-core.jar</arduino.ide.corejar>
+				<!-- arduino.ide.corejar>C:/SRC/GitHub/Arduino/arduino-core/arduino-core.jar</arduino.ide.corejar -->
+				<!-- OVERRIDE THIS AS MAVEN ARGUMENT IF NEEDED -->
+				<arduino.ide.corejar>/opt/arduino-1.6.0/lib/arduino-core.jar</arduino.ide.corejar>
 			</properties>
 		</profile>
 	</profiles>
@@ -127,6 +129,12 @@
 				<groupId>de.root1</groupId>
 				<artifactId>rxtx-rebundled</artifactId>
 				<version>2.1-7r2-3</version>
+		</dependency -->
+		<!-- https://mvnrepository.com/artifact/li.rudin.arduino/arduino-core -->
+		<!-- dependency>
+		    <groupId>li.rudin.arduino</groupId>
+		    <artifactId>arduino-core</artifactId>
+		    <version>2.6</version>
 		</dependency -->
 		<dependency>
 			<groupId>cc.arduino</groupId>

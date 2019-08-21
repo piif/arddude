@@ -147,6 +147,10 @@ public class Console extends Thread {
 		}
 	}
 
+	public void onIncomingData(byte data[]) {
+		onIncomingData(data, data.length);
+	}
+
 	public void insertString(String str) throws IOException {
 		console.insertString(str);
 	}

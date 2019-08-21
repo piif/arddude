@@ -60,7 +60,7 @@ public class MySerialUploader extends SerialUploader {
 			try {
 				String pattern = prefs.getOrExcept("upload.pattern");
 				String[] cmd = StringReplacer.formatAndSplit(pattern, prefs, true);
-				logger.debug("executeUploadCommand " + cmd);
+				logger.debug("executeUploadCommand " + String.join(" ", cmd));
 				uploadResult = executeUploadCommand(cmd);
 			} catch (Exception e) {
 				throw new RunnerException(e);
@@ -136,7 +136,7 @@ public class MySerialUploader extends SerialUploader {
 
 			String pattern = prefs.getOrExcept("upload.pattern");
 			String[] cmd = StringReplacer.formatAndSplit(pattern, prefs, true);
-			logger.debug("executeUploadCommand " + cmd);
+			logger.debug("executeUploadCommand " + String.join(" ", cmd));
 			uploadResult = executeUploadCommand(cmd);
 		} catch (RunnerException e) {
 			throw e;

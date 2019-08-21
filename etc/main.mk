@@ -54,7 +54,7 @@ endif
 ALL_SOURCES := $(foreach d,${SOURCE_DIRS},$(call wildcards,$d,*.c *.cpp *.ino))
 ifneq (${SOURCE_EXCLUDE_PATTERNS},)
   ALL_SOURCES := $(call filter-out-substr,${SOURCE_EXCLUDE_PATTERNS},${ALL_SOURCES})
-  #$(info main after exclude patterns ${SOURCE_EXCLUDE_PATTERNS}: ALL_SOURCES=${ALL_SOURCES})
+  $(info main after exclude patterns ${SOURCE_EXCLUDE_PATTERNS}: ALL_SOURCES=${ALL_SOURCES})
 endif
 ALL_SOURCES := $(sort ${MAIN_SOURCE} ${ALL_SOURCES})
 
