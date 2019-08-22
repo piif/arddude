@@ -1,8 +1,8 @@
 package cc.arduino.packages.uploaders;
 
-import static processing.app.I18n._;
 
 import java.io.File;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +10,6 @@ import org.apache.log4j.Logger;
 
 import pif.arduino.ArdConsole;
 import processing.app.BaseNoGui;
-import processing.app.I18n;
 import processing.app.PreferencesData;
 import processing.app.Serial;
 import processing.app.SerialException;
@@ -91,10 +90,8 @@ public class MySerialUploader extends SerialUploader {
 				List<String> before = Serial.list();
 				if (before.contains(uploadPort)) {
 					if (verbose)
-						System.out
-								.println(I18n
-										.format(_("Forcing reset using 1200bps open/close on port {0}"),
-												uploadPort));
+						System.out.println(
+							MessageFormat.format("Forcing reset using 1200bps open/close on port {0}", uploadPort));
 					Serial.touchPort(uploadPort, 1200);
 				}
 				Thread.sleep(400);
@@ -213,6 +210,6 @@ public class MySerialUploader extends SerialUploader {
 
 		// Something happened while detecting port
 		throw new RunnerException(
-				_("Couldn't find a Board on the selected port. Check that you have the correct port selected.  If it is correct, try pressing the board's reset button after initiating the upload."));
+				"Couldn't find a Board on the selected port. Check that you have the correct port selected.  If it is correct, try pressing the board's reset button after initiating the upload.");
 	}
 }

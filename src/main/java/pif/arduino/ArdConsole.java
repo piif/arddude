@@ -12,11 +12,8 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 
-import pif.arduino.tools.*;
 import cc.arduino.packages.uploaders.MySerialUploader;
-import processing.app.PreferencesData;
-import processing.app.Serial;
-import processing.app.debug.TargetBoard;
+import pif.arduino.tools.*;
 
 /**
  * Main class for serial console
@@ -34,32 +31,24 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	static Options options;
 	static {
-		options = new Options();
-		options.addOption("h", "help", false, "usage");
-		options.addOption("I", "arduino-ide", true, "base installation directory of Arduino IDE");
-		options.addOption(LoadConfig.PREFERENCES_OPTION, false, "alternate Arduino IDE preferences file");
+		options = Console.getOptions();
+		options.addOption("a", "arduino-cli", true, "arduino-cli path and global options");
 
-		options.addOption("B", "boards", false, "list supported target boards");
-		options.addOption("b", "board", true, "set target boards");
-
-		options.addOption("P", "ports", false, "list available ports");
 		options.addOption("p", "port", true, "set port to connect to");
 		options.addOption("s", "baudrate", true, "set port baudrate");
 
 		options.addOption("f", "file", true, "file to scan / upload");
 		options.addOption("u", "upload", false, "launch upload at startup");
-		options.addOption("v", "verbose", false, "set upload verbosity");
 		options.addOption("d", "debug", false, "set debug level");
 
-		options.addOption("x", "exit", false, "exit after dump commands instead of launching console");
-		options.addOption("r", "raw", false, "raw mode : dump commands list only ids, console is raw, no history nor editing facilities");
+		options.addOption("x", "exit", false, "exit after dump or upload commands, instead of launching console");
 		options.addOption("c", "command", true, "comma separated list of commands to send after connection");
 	}
 
 	protected static boolean rawMode = false;
 
-	protected String boardName, portName;
-	protected ArduinoConfig.PortBoard port;
+	protected String portName;
+	protected int baudrate;
 
 	protected File uploadFile;
 	String uploadFilePath, uploadFileName;
@@ -69,7 +58,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	// "arduino IDE" serial object
 	protected MySerial serial = null;
 
-	protected Console console;
+	protected Console console = null;
 
 	/**
 	 * parse command line, load arduino config and instantiate a ArdConsole
@@ -87,28 +76,6 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			usage(0);
 		}
 
-		if (!LoadConfig.load(commandLine)) {
-			usage(2);
-		}
-
-		if (commandLine.hasOption('r')) {
-			rawMode = true;
-		}
-
-		if (commandLine.hasOption('P')) {
-			ArduinoConfig.listPorts(System.out, rawMode);
-		}
-		if (commandLine.hasOption('B')) {
-			ArduinoConfig.listBoards(System.out, rawMode, false);
-		}
-
-		// set verbosity
-		if (commandLine.hasOption('v')) {
-			PreferencesData.setBoolean("upload.verbose", true);
-		} else {
-			PreferencesData.setBoolean("upload.verbose", false);
-		}
-
 		if (commandLine.hasOption('d')) {
 			Logger.getRootLogger().setLevel(org.apache.log4j.Level.DEBUG);
 		}
@@ -118,7 +85,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	/**
-	 * initialize board, port ..., launch file scanner if file specified,
+	 * initialize port ..., launch file scanner if file specified,
 	 * launch console and connect
 	 * @param commandLine
 	 */
@@ -126,11 +93,8 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (commandLine.hasOption('p')) {
 			setPort(commandLine.getOptionValue('p'));
 		}
-		if (commandLine.hasOption('b')) {
-			setBoard(commandLine.getOptionValue('b'));
-		}
 		if (commandLine.hasOption('s')) {
-			ArduinoConfig.baudrate = Integer.parseInt(commandLine.getOptionValue('s'));
+			baudrate = Integer.parseInt(commandLine.getOptionValue('s'));
 		}
 
 		if (commandLine.hasOption('f')) {
@@ -169,7 +133,11 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		}
 
 		// establish console
-		console = new Console(this, rawMode);
+		try {
+			console = new Console(this, commandLine);
+		} catch(IllegalArgumentException e) {
+			usage(3);
+		}
 
 		if (portName != null) {
 			connect();
@@ -184,20 +152,13 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	protected static void usage(int exitCode) {
 		HelpFormatter fmt = new HelpFormatter();
-		String footer =
-				"\narduino ide path is looked for respectivly in command line option, java properties (-DARDUINO_IDE=...)," +
-				" ARDUINO_IDE environment variable, location of BaseNoGui arduino class if already loaded" +
-				" (if classpath was set accordingly for example)";
-		fmt.printHelp(80, "java -jar main_jar_file.jar pif.arduino.ArdConsole options ...", "options :", options, footer);
+		fmt.printHelp(80, "java -jar main_jar_file.jar pif.arduino.ArdConsole options ...", "options :", options, "");
 		System.exit(exitCode);
 	}
 
 
-	void help() {
-		String help = "!ports [x]: list serial port (as -P command line option). Append any character after command to force a new port scan\n"
-				+ "  !boards : list target plateforms (as -B command line option)\n"
-				+ "  !port xxx : set current serial port (like -p option)\n"
-				+ "  !board xxx : set current board (like -b option)\n"
+	void commandsHelp() {
+		String help = "  !port xxx : set current serial port (like -p option)\n"
 				+ "  !connect and !disconnect : as the name suggests ...\n"
 				+ "  !baudrate nn : set baudrate\n"
 				+ "  !reset : try to reset serial port, then reconnect if was connected (useful after upload in some cases)\n"
@@ -208,37 +169,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	protected void setPort(String portName) {
-		ArduinoConfig.PortBoard newPort = ArduinoConfig.getPortByName(portName);
-		if (newPort == null) {
-			logger.error("Unknown port " + portName);
-			return;
-		}
-		port = newPort;
 		this.portName = portName;
-		ArduinoConfig.setPort(port);
-
-		// if no board selected and port identified one, set it
-		if (boardName == null) {
-			if (port.board != null) {
-				ArduinoConfig.setBoard(port.board);
-			}
-		} else if (port.board != null && !boardName.equals(port.board.getId())) {
-			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
-					port.board.getId(), boardName));
-		}
-	}
-
-	protected void setBoard(String boardName) {
-		TargetBoard board = ArduinoConfig.setBoard(boardName);
-		if (board == null) {
-			logger.error("Unknown board " + boardName);
-			return;
-		}
-		if (port != null && port.board != null && port.board != board) {
-			logger.warn(String.format("port was detected has a different board (%s) than specifed one (%s)",
-					port.board.getId(), board.getId()));
-		}
-		this.boardName = boardName;
 	}
 
 	@Override
@@ -261,27 +192,15 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 		if (command.equals("upload") || command.equals("u")) {
 			launchUpload();
-		} else if (command.equals("boards")) {
-			ArduinoConfig.listBoards(System.out, rawMode, false);
-		} else if (command.equals("board")) {
-			setBoard(args);
-		} else if (command.equals("ports")) {
-			ArduinoConfig.listPorts(System.out, rawMode, args != null);
 		} else if (command.equals("port")) {
 			setPort(args);
 		} else if (command.equals("baudrate")) {
 			int baudrate = Integer.parseInt(args);
-			ArduinoConfig.baudrate = baudrate;
+			baudrate = baudrate;
 		} else if (command.equals("connect")) {
 			connect();
 		} else if (command.equals("disconnect")) {
 			disconnect();
-		} else if (command.equals("verbose")) {
-			if ("off".equals(args) || "0".equals(args)) {
-				PreferencesData.setBoolean("upload.verbose", false);
-			} else {
-				PreferencesData.setBoolean("upload.verbose", true);
-			}
 		} else if (command.equals("file") || command.equals("scan")) {
 			if (args == null) {
 				logger.error("missing file path to scan");
@@ -301,7 +220,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			status(System.out);
 		} else if (command.equals("help")) {
 			// trap exit to output our own help
-			help();
+			commandsHelp();
 			// but return false to let caller handle its own
 			return false;
 		} else {
@@ -348,11 +267,9 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (state == STATE_NONE) {
 			// serial must be null
 			try {
-				serial = new MySerial(console, ArduinoConfig.baudrate);
+				serial = new BufferedSerial(console, portName, baudrate);
 				state = STATE_CONNECTED;
-			} catch (/*processing.app.Serial*/Exception e) {
-				// just specify Exception or jvm crashes at startup
-				// with java.lang.NoClassDefFoundError
+			} catch (MySerialException e) {
 				logger.error("Can't connect", e);
 				try {
 					// try to clean up ?
@@ -393,7 +310,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			disconnect();
 		}
 		try {
-			Serial.touchPort(port.address, 1200);
+			MySerial.touchForCDCReset(portName);
 		} catch (Exception e) {
 			logger.error("port reset failed", e);
 		}
@@ -401,13 +318,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	protected void status(PrintStream output) {
-		if (boardName != null) {
-			output.println("Target platform is " + boardName);
+		if (portName != null) {
+			output.println("Configured to connect on port " + portName);
 		}
-		if (port != null) {
-			output.println("Configured to connect on port " + port.address);
-		}
-		output.println("Baudrate is " + ArduinoConfig.baudrate);
+		output.println("Baudrate is " + baudrate);
 		if (uploadFile != null) {
 			output.println("Scanning file " + uploadFile);
 		}
@@ -448,6 +362,8 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		case STATE_NONE:
 			// noop
 		}
+
+		// TODO : use ProcessBuilder instead , or a variant if ProcessBuilder wants separate arguments
 
 		MessageRenderer warnings = new MessageRenderer(System.out, "[upload]");
 

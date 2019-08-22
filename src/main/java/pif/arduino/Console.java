@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Options;
 import org.apache.log4j.Logger;
 
 import pif.arduino.tools.JlineConsole;
@@ -25,6 +27,18 @@ public class Console extends Thread {
 
 	protected ConsolePeer peer;
 	protected boolean raw = false;
+
+	static Options options;
+	static {
+		options = new Options();
+		options.addOption("h", "help", false, "usage");
+		options.addOption("l", "linemode", true, "line mode cr, lr, crlf or none (default)");
+		options.addOption("r", "raw", false, "raw mode. Console output is raw, no history nor editing facilities");
+		options.addOption("o", "output", false, "output mode : hex, ascii or raw");
+	}
+	static public Options getOptions() {
+		return options;
+	}
 
 	static public final String PROMPT = "> ";
 	/*
@@ -51,14 +65,64 @@ public class Console extends Thread {
 		public void onDisconnect(int status);
 	}
 
-	public Console(ConsolePeer peer) {
-		this(peer, false);
+	// current display mode
+	static final byte MODE_RAW   = 0;
+	static final byte MODE_ASCII = 1;
+	static final byte MODE_HEX   = 2;
+
+	protected byte displayMode = MODE_ASCII;
+
+	// current line mode
+	static final String LINE_CR   = "\r";
+	static final String LINE_LF   = "\n";
+	static final String LINE_CRLF = "\r\n";
+	static final String LINE_NONE = "";
+
+	protected String lineMode = LINE_NONE;
+
+	public Console(ConsolePeer peer) throws IllegalArgumentException {
+		this(peer, null);
 	}
 
-	public Console(ConsolePeer peer, boolean raw) {
-		this.raw = raw;
-		if (raw) {
-			displayMode = MODE_RAW;
+	public Console(ConsolePeer peer, CommandLine commandLine) throws IllegalArgumentException {
+		if (commandLine!=null) {
+			if (commandLine.hasOption('l')) {
+				switch(commandLine.getOptionValue('l')) {
+				case "cr":
+					lineMode = LINE_CR;
+					break;
+				case "lf":
+					lineMode = LINE_LF;
+					break;
+				case "crlf":
+					lineMode = LINE_CRLF;
+					break;
+				case "none":
+					lineMode = LINE_NONE;
+					break;
+				default:
+					throw new IllegalArgumentException("bad value for 'linemode' option");
+				}
+			}
+			if (commandLine.hasOption('o')) {
+				switch(commandLine.getOptionValue('o')) {
+				case "hex":
+					displayMode = MODE_HEX;
+					break;
+				case "ascii":
+					displayMode = MODE_ASCII;
+					break;
+				case "raw":
+					displayMode = MODE_RAW;
+					break;
+				default:
+					throw new IllegalArgumentException("bad value for 'output' option");
+				}
+			}
+			if (commandLine.hasOption('r')) {
+				raw = true;
+				displayMode = MODE_RAW;
+			}
 		}
 		this.peer = peer;
 	}
@@ -99,21 +163,6 @@ public class Console extends Thread {
 		}
 	}
 	protected MyConsole console;
-
-	// current display mode
-	static final byte MODE_RAW   = 0;
-	static final byte MODE_ASCII = 1;
-	static final byte MODE_HEX   = 2;
-
-	protected byte displayMode = MODE_ASCII;
-
-	// current line mode
-	static final String LINE_CR   = "\r";
-	static final String LINE_LF   = "\n";
-	static final String LINE_CRLF = "\r\n";
-	static final String LINE_NONE = "";
-
-	protected String lineMode = LINE_NONE;
 
 	/*
 	 * peer sends data it receives thru this method
@@ -340,7 +389,7 @@ public class Console extends Thread {
 				+ "Any character entered in console are filled in a sending buffer, excepted if line begins with '!'.\n"
 				+ "  When hitting enter, end of line characters are appended, and buffer is sent to peer.\n"
 				+ "  End of line character depends on current line mode, which is 'none' by default (thus no character).\n"
-				+ "  See cr, lf, .. commands balowto modify this mode.\n"
+				+ "  To change this mode see cr, lf, .. commands below.\n"
 				+ "  To send explicitly a line beginning by '!', double it ('!!')\n"
 				+ "Lines begining with a '!' start a command :"
 				+ "  !exit (or Ctrl-D) : exit console program\n"
@@ -348,7 +397,7 @@ public class Console extends Thread {
 				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C\n"
 				+ "  !ascii : printable characters are displayed raw, other ones are displayed in [hh] format (default mode)\n"
 				+ "  !raw : all incomming bytes are displayed raw (default mode if -raw command line option was set)\n"
-				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\r', '\n', '\r\n', nothing\n"
+				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\\r', '\\n', '\\r\\n', nothing\n"
 				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text\n"
 				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ]\n"
 				+ "    Caution : this not does NOT append end of line characters, whatever current line mode";
