@@ -9,18 +9,11 @@ public class LaunchCommand {
 	// TODO handle pwd
 	public static void main(String[] args) throws IOException {
 
-		String[] cmdLine = {
-			"/bin/ls",
-			"-l",
-			"-a", "/DATA", "/root"
-		};
-
-		ProcessBuilder pb = new ProcessBuilder(cmdLine);
-		Process p = pb.start();
+		Process p = Runtime.getRuntime().exec("ls -l -a /DATA /root");
 		OutputRenderer out = new OutputRenderer(p.getInputStream(), System.out, "\033[32m", "\033[0m\n");
 		OutputRenderer err = new OutputRenderer(p.getErrorStream(), System.out, "\033[91m", "\033[0m\n");
 
-		while(p.isAlive() /*|| !outClosed || !errClosed*/) {
+		while(p.isAlive()) {
 			out.forward();
 			err.forward();
 		}

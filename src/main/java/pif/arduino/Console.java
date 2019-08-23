@@ -26,7 +26,6 @@ public class Console extends Thread {
 	Logger logger = Logger.getLogger(Console.class);
 
 	protected ConsolePeer peer;
-	protected boolean raw = false;
 
 	static Options options;
 	static {
@@ -65,20 +64,45 @@ public class Console extends Thread {
 		public void onDisconnect(int status);
 	}
 
+	protected boolean raw = false;
+
+	public boolean isRaw() {
+		return raw;
+	}
+
 	// current display mode
-	static final byte MODE_RAW   = 0;
-	static final byte MODE_ASCII = 1;
-	static final byte MODE_HEX   = 2;
+	public static final byte MODE_RAW   = 0;
+	public static final byte MODE_ASCII = 1;
+	public static final byte MODE_HEX   = 2;
 
 	protected byte displayMode = MODE_ASCII;
 
+	public String getDisplayMode() {
+		switch (displayMode) {
+		case MODE_RAW  : return "raw";
+		case MODE_ASCII: return "ascii";
+		case MODE_HEX  : return "hex";
+		default: return "???";
+		}
+	}
+
 	// current line mode
-	static final String LINE_CR   = "\r";
-	static final String LINE_LF   = "\n";
-	static final String LINE_CRLF = "\r\n";
-	static final String LINE_NONE = "";
+	public static final String LINE_CR   = "\r";
+	public static final String LINE_LF   = "\n";
+	public static final String LINE_CRLF = "\r\n";
+	public static final String LINE_NONE = "";
 
 	protected String lineMode = LINE_NONE;
+
+	public String getLineMode() {
+		switch (lineMode) {
+		case LINE_CR  : return "CR";
+		case LINE_LF  : return "LF";
+		case LINE_CRLF: return "CRLF";
+		case LINE_NONE: return "none";
+		default: return "???";
+		}
+	}
 
 	public Console(ConsolePeer peer) throws IllegalArgumentException {
 		this(peer, null);
@@ -218,33 +242,46 @@ public class Console extends Thread {
 		if (peer.onCommand(line)) {
 			return;
 		}
-		if (line.equals("cr")) {
+
+		switch(line) {
+		case "cr":
 			lineMode = LINE_CR;
-		} else if (line.equals("lf")) {
+			break;
+		case "lf":
 			lineMode = LINE_LF;
-		} else if (line.equals("crlf")) {
+			break;
+		case "crlf":
 			lineMode = LINE_CRLF;
-		} else if (line.equals("none")) {
+			break;
+		case "none":
 			lineMode = LINE_NONE;
+			break;
 
-		} else if (line.equals("hex")) {
+		case "hex":
 			displayMode = MODE_HEX;
-		} else if (line.equals("ascii")) {
+			break;
+		case "ascii":
 			displayMode = MODE_ASCII;
-		} else if (line.equals("raw")) {
+			break;
+		case "raw":
 			displayMode = MODE_RAW;
+			break;
 
-		} else if (line.startsWith("x ")) {
-			byte[] data = readHexData(line.substring(2));
-			logger.debug(hexTools.toHexDump(data));
-			if (data != null) {
-				peer.onOutgoingData(data);
-			}
-
-		} else if (line.equals("help") || line.equals("?")) {
+		case "help":
+		case "?":
 			help();
-		} else {
-			logger.warn("Unknown command " + line + ". Type !help or !? for help");
+			break;
+
+		default:
+			if (line.startsWith("x ")) {
+				byte[] data = readHexData(line.substring(2));
+				logger.debug(hexTools.toHexDump(data));
+				if (data != null) {
+					peer.onOutgoingData(data);
+				}
+			} else {
+				logger.warn("Unknown command " + line + ". Type !help or !? for help");
+			}
 		}
 	}
 
