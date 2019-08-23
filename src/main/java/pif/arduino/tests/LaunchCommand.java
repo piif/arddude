@@ -1,35 +1,34 @@
 package pif.arduino.tests;
 
 import java.io.IOException;
-import java.io.InputStream;
+
+import pif.arduino.tools.OutputRenderer;
 
 public class LaunchCommand {
 
-	// TODO ProcessBuilder tests
-	// TODO test with mixed arguments "mycommand", "several arguments in one string" 
-	// TODO stdout and stderr prefixed by [%s INFO] [%s  ERR]
-	// TODO use colors ?
+	// TODO handle pwd
 	public static void main(String[] args) throws IOException {
 
 		String[] cmdLine = {
 			"/bin/ls",
 			"-l",
-			"-a /"
+			"-a", "/DATA", "/root"
 		};
 
 		ProcessBuilder pb = new ProcessBuilder(cmdLine);
 		Process p = pb.start();
-		InputStream out = p.getInputStream();
-		InputStream err = p.getErrorStream();
-		// TODO : adapt MessageRenderer to append chars and split at \n
-		while(true) {
-			read out => append
-					if \n, flush prefixed
-			read err => append
-					if \n, flush prefixed
-			if out and err EOF? flush and break
-			if status not exception, flush and break
+		OutputRenderer out = new OutputRenderer(p.getInputStream(), System.out, "\033[32m", "\033[0m\n");
+		OutputRenderer err = new OutputRenderer(p.getErrorStream(), System.out, "\033[91m", "\033[0m\n");
+
+		while(p.isAlive() /*|| !outClosed || !errClosed*/) {
+			out.forward();
+			err.forward();
 		}
+		out.forward();
+		out.flush();
+		err.forward();
+		err.flush();
+		System.out.println("Exit status : " + p.exitValue());
 	}
 
 }
