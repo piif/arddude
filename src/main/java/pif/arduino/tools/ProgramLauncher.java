@@ -12,6 +12,8 @@ public class ProgramLauncher {
 	protected String outPrefix = "OUT ", outSuffix = "\n";
 	protected String errPrefix = "OUT ", errSuffix = "\n";
 
+	protected Process process = null;
+
 	/**
 	 * prepare command to launch
 	 * @param command
@@ -46,11 +48,11 @@ public class ProgramLauncher {
 	 * @throws IOException
 	 */
 	public int run(OutputStream out) throws IOException {
-		Process p = Runtime.getRuntime().exec(command);
-		OutputRenderer pout = new OutputRenderer(p.getInputStream(), out, "\033[32m", "\033[0m\n");
-		OutputRenderer perr = new OutputRenderer(p.getErrorStream(), out, "\033[91m", "\033[0m\n");
+		Process process = Runtime.getRuntime().exec(command);
+		OutputRenderer pout = new OutputRenderer(process.getInputStream(), out, "\033[32m", "\033[0m\n");
+		OutputRenderer perr = new OutputRenderer(process.getErrorStream(), out, "\033[91m", "\033[0m\n");
 
-		while(p.isAlive()) {
+		while(process.isAlive()) {
 			pout.forward();
 			perr.forward();
 		}
@@ -59,6 +61,21 @@ public class ProgramLauncher {
 		perr.forward();
 		perr.flush();
 
-		return p.exitValue();
+		int result =  process.exitValue();
+		process = null;
+		return result;
+	}
+
+	/**
+	 * Wait for the process end
+	 */
+	public void waitFor() {
+		if (process != null) {
+			try {
+				process.waitFor();
+			} catch (InterruptedException e) {
+				// ignored
+			}
+		}
 	}
 }

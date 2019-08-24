@@ -40,6 +40,7 @@ public class Console extends Thread {
 	}
 
 	static public final String PROMPT = "> ";
+
 	/*
 	 * console must be "attached" to a class which handle commands and data, thru
 	 * this interface
@@ -239,6 +240,7 @@ public class Console extends Thread {
 	}
 
 	void handleCommand(String line) {
+		// delegate to peer at first
 		if (peer.onCommand(line)) {
 			return;
 		}
@@ -270,6 +272,10 @@ public class Console extends Thread {
 		case "help":
 		case "?":
 			help();
+			break;
+
+		case "exit":
+			// calling method will handle this
 			break;
 
 		default:
@@ -395,12 +401,12 @@ public class Console extends Thread {
 							setBuffer(inputLine.substring(1));
 							send();
 						} else {
-							handleCommand(inputLine.substring(1));
 							if ("!exit".equals(inputLine)) {
 								logger.debug("Exit console");
 								peer.onDisconnect(0);
 								return;
 							}
+							handleCommand(inputLine.substring(1));
 						}
 					} else {
 						setBuffer(inputLine);

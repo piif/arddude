@@ -12,7 +12,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.log4j.Logger;
 
-import cc.arduino.packages.uploaders.MySerialUploader;
 import pif.arduino.tools.*;
 
 /**
@@ -35,7 +34,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		options.addOption("a", "arduino-cli", true, "arduino-cli command and global options");
 
 		options.addOption("p", "port", true, "set port to connect to");
-		options.addOption("s", "baudrate", true, "set port baudrate");
+		options.addOption("b", "baudrate", true, "set port baudrate");
 
 		options.addOption("f", "file", true, "file to scan / upload");
 		options.addOption("u", "upload", false, "launch upload at startup");
@@ -48,16 +47,15 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	protected static boolean rawMode = false;
 
 	protected String portName;
-	protected int baudrate;
+	protected int baudrate = 115200;
 
 	protected File uploadFile;
-	String uploadFilePath;
 	protected FileScanner scanner;
 
 	public static final String DEFAULT_UPLOAD_COMMAND = "arduino-cli upload";
 	String uploadCommand = DEFAULT_UPLOAD_COMMAND;
+	ProgramLauncher uploadProcess = null;
 
-	// "arduino IDE" serial object
 	protected MySerial serial = null;
 
 	protected Console console = null;
@@ -95,8 +93,8 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (commandLine.hasOption('p')) {
 			setPort(commandLine.getOptionValue('p'));
 		}
-		if (commandLine.hasOption('s')) {
-			baudrate = Integer.parseInt(commandLine.getOptionValue('s'));
+		if (commandLine.hasOption('b')) {
+			baudrate = Integer.parseInt(commandLine.getOptionValue('b'));
 		}
 
 		if (commandLine.hasOption('a')) {
@@ -105,9 +103,6 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 		if (commandLine.hasOption('f')) {
 			uploadFile = new File(commandLine.getOptionValue('f'));
-			// upload config waits for a file name specified as : {build.path}/{build.project_name}.hex or .bin
-			// thus, have to split it
-			uploadFilePath = uploadFile.getParent();
 		}
 
 		if (commandLine.hasOption('u')) {
@@ -234,6 +229,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			commandsHelp();
 			// but return false to let caller handle its own
 			return false;
+		case "exit":
+			// disconnect before exiting
+			disconnect();
+			break;
 		default:
 			return false;
 		}
@@ -242,11 +241,8 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	@Override
 	public void onDisconnect(int status) {
-		while (state == STATE_UPLOADING) {
-			// if uploading, wait it to finish
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {}
+		if (state == STATE_UPLOADING && uploadProcess != null) {
+			uploadProcess.waitFor();
 		}
 		if (state == STATE_CONNECTED) {
 			disconnect();
@@ -376,15 +372,14 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			// noop
 		}
 
-		// TODO : use ProcessBuilder instead , or a variant if ProcessBuilder wants separate arguments
-		ProgramLauncher cmd = new ProgramLauncher(uploadCommand);
+		uploadProcess = new ProgramLauncher(uploadCommand + " -p " + portName + " -i " + uploadFile);
 		if (!console.isRaw()) {
-			cmd.setOutMask("\033[32m", "\033[0m\n");
-			cmd.setErrMask("\033[32m", "\033[0m\n");
+			uploadProcess.setOutMask("\033[32m", "\033[0m\n");
+			uploadProcess.setErrMask("\033[32m", "\033[0m\n");
 		}
 		int status = -1;
 		try {
-			status = cmd.run(System.out);
+			status = uploadProcess.run(System.out);
 		} catch (Exception e) {
 			logger.error("Upload execution failed", e);
 		}

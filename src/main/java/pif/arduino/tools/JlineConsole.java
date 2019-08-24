@@ -27,8 +27,6 @@ public class JlineConsole extends ConsoleReader {
 		int savedPos = getCursorBuffer().cursor;
 		boolean hasToRestore = (getCursorBuffer().buffer.length() != 0);
 		if (hasToRestore) {
-//			moveToEnd();
-//			resetLine();
 			setCursorPosition(0);
 			killLine();
 		}
