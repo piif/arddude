@@ -38,7 +38,7 @@ public class FakePeer implements Console.ConsolePeer {
 		return false;
 	}
 
-	public void onDisconnect(int status) {
+	public void onExit(int status) {
 		System.exit(status);
 	}
 

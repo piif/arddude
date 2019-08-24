@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.text.MessageFormat;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -28,26 +29,13 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	static short state = STATE_NONE;
 
-	static Options options;
-	static {
-		options = Console.getOptions();
-		options.addOption("a", "arduino-cli", true, "arduino-cli command and global options");
-
-		options.addOption("p", "port", true, "set port to connect to");
-		options.addOption("b", "baudrate", true, "set port baudrate");
-
-		options.addOption("f", "file", true, "file to scan / upload");
-		options.addOption("u", "upload", false, "launch upload at startup");
-		options.addOption("d", "debug", false, "set debug level");
-
-		options.addOption("x", "exit", false, "exit after dump or upload commands, instead of launching console");
-		options.addOption("c", "command", true, "comma separated list of commands to send after connection");
-	}
+	static final int DEFAULT_BAUDRATE = 115200;
 
 	protected static boolean rawMode = false;
 
-	protected String portName;
-	protected int baudrate = 115200;
+	protected String boardName = null;
+	protected String portName = null;
+	protected int baudrate = DEFAULT_BAUDRATE;
 
 	protected File uploadFile;
 	protected FileScanner scanner;
@@ -59,6 +47,23 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	protected MySerial serial = null;
 
 	protected Console console = null;
+
+	static Options options;
+	static {
+		options = Console.getOptions();
+		options.addOption("a", "arduino-cli", true, "arduino-cli command and global options");
+
+		options.addOption("p", "port", true, "set port to connect to");
+		options.addOption("s", "baudrate", true, "set port baudrate (defaults to " + DEFAULT_BAUDRATE + ")");
+
+		options.addOption("f", "file", true, "file to scan / upload");
+		options.addOption("b", "boardname", true, "set board fqbn (mandatory for upload)");
+		options.addOption("u", "upload", false, "launch upload at startup");
+		options.addOption("d", "debug", false, "set debug level");
+
+		options.addOption("x", "exit", false, "exit after dump or upload commands, instead of launching console");
+		options.addOption("c", "command", true, "comma separated list of commands to send after connection");
+	}
 
 	/**
 	 * parse command line, load arduino config and instantiate a ArdConsole
@@ -79,7 +84,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (commandLine.hasOption('d')) {
 			Logger.getRootLogger().setLevel(org.apache.log4j.Level.DEBUG);
 		}
-
+	
 		// ok, it will become a bit more complicated, pass to an instance...
 		new ArdConsole(commandLine);
 	}
@@ -90,58 +95,65 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	 * @param commandLine
 	 */
 	ArdConsole(CommandLine commandLine) {
-		if (commandLine.hasOption('p')) {
-			setPort(commandLine.getOptionValue('p'));
-		}
-		if (commandLine.hasOption('b')) {
-			baudrate = Integer.parseInt(commandLine.getOptionValue('b'));
-		}
+		try {
+			if (commandLine.hasOption('p')) {
+				portName = commandLine.getOptionValue('p');
+			}
+			if (commandLine.hasOption('s')) {
+				baudrate = Integer.parseInt(commandLine.getOptionValue('s'));
+			}
+			if (commandLine.hasOption('b')) {
+				boardName = commandLine.getOptionValue('b');
+			}
 
-		if (commandLine.hasOption('a')) {
-			uploadCommand = commandLine.getOptionValue('a');
-		}
-
-		if (commandLine.hasOption('f')) {
-			uploadFile = new File(commandLine.getOptionValue('f'));
-		}
-
-		if (commandLine.hasOption('u')) {
-			if (uploadFile == null) {
-				logger.error("Can't upload : no file specified (-f option)");
+			if (commandLine.hasOption('a')) {
+				uploadCommand = commandLine.getOptionValue('a');
+			}
+	
+			if (commandLine.hasOption('f')) {
+				uploadFile = new File(commandLine.getOptionValue('f'));
+			}
+	
+			if (commandLine.hasOption('u')) {
+				if (uploadFile == null) {
+					logger.error("Can't upload : no file specified (-f option)");
+					usage(2);
+				} else {
+					launchUpload();
+				}
+			}
+	
+			if (commandLine.hasOption('x')) {
+				System.exit(0);
+			}
+	
+			try {
+				if (uploadFile != null) {
+					scanner = new FileScanner(uploadFile, this);
+				}
+			} catch (FileNotFoundException e) {
+				logger.error("File to upload doesn't exists");
 				usage(2);
-			} else {
-				launchUpload();
 			}
-		}
-
-		if (commandLine.hasOption('x')) {
-			System.exit(0);
-		}
-
-		try {
-			if (uploadFile != null) {
-				scanner = new FileScanner(uploadFile, this);
+	
+			// establish console
+			try {
+				console = new Console(this, commandLine);
+			} catch(IllegalArgumentException e) {
+				usage(3);
 			}
-		} catch (FileNotFoundException e) {
-			logger.error("File to upload doesn't exists");
-			usage(2);
-		}
-
-		// establish console
-		try {
-			console = new Console(this, commandLine);
-		} catch(IllegalArgumentException e) {
-			usage(3);
-		}
-
-		if (portName != null) {
-			connect();
-		}
-		console.start();
-		if (commandLine.hasOption('c')) {
-			for (String cmd : commandLine.getOptionValue('c').split(",")) {
-				console.handleCommand(cmd);
+	
+			if (portName != null) {
+				connect();
 			}
+			console.start();
+			if (commandLine.hasOption('c')) {
+				for (String cmd : commandLine.getOptionValue('c').split(",")) {
+					console.handleCommand(cmd);
+				}
+			}
+		} catch(Throwable t) {
+			onExit(0);
 		}
 	}
 
@@ -151,20 +163,16 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		System.exit(exitCode);
 	}
 
-
 	void commandsHelp() {
 		String help = "  !port xxx : set current serial port (like -p option)\n"
-				+ "  !connect and !disconnect : as the name suggests ...\n"
 				+ "  !baudrate nn : set baudrate\n"
+				+ "  !boardname board : set boardname\n"
+				+ "  !connect and !disconnect : as the name suggests ...\n"
 				+ "  !reset : try to reset serial port, then reconnect if was connected (useful after upload in some cases)\n"
 				+ "  !upload : launch upload then reconnect if was connected\n"
 				+ "  !file filename : set file path to scan for modification"
 				+ "  !status : display current connexion status";
 		System.out.println(help);
-	}
-
-	protected void setPort(String portName) {
-		this.portName = portName;
 	}
 
 	@Override
@@ -191,10 +199,14 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			launchUpload();
 			break;
 		case "port":
-			setPort(args);
+			portName = args;
 			break;
 		case "baudrate":
 			baudrate = Integer.parseInt(args);
+			break;
+		case "boardname":
+		case "fqbn":
+			boardName = args;
 			break;
 		case "connect":
 			connect();
@@ -240,14 +252,16 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	@Override
-	public void onDisconnect(int status) {
+	public void onExit(int status) {
 		if (state == STATE_UPLOADING && uploadProcess != null) {
+			logger.debug("waiting end of upload..");
 			uploadProcess.waitFor();
 		}
 		if (state == STATE_CONNECTED) {
 			disconnect();
 		}
 		if (scanner != null) {
+			logger.debug("stopping file scanner..");
 			scanner.stop();
 		}
 	}
@@ -272,6 +286,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		// create this object lately because its constructor opens connection
 		// and we want to be able to upload at startup, thus before connection
 		if (state == STATE_NONE) {
+			logger.debug("connecting..");
 			// serial must be null
 			try {
 				serial = new BufferedSerial(console, portName, baudrate);
@@ -294,6 +309,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	protected void disconnect() {
 		if (state == STATE_CONNECTED) {
+			logger.debug("disconnecting..");
 			try {
 				serial.dispose();
 				state = STATE_NONE;
@@ -316,6 +332,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		if (state == STATE_CONNECTED) {
 			disconnect();
 		}
+		logger.debug("reseting port..");
 		try {
 			MySerial.touchForCDCReset(portName);
 		} catch (Exception e) {
@@ -356,6 +373,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			logger.error("port was not specified, can't connect");
 			return;
 		}
+		if (boardName == null) {
+			logger.error("board was not specified, can't launch upload");
+			return;
+		}
 
 		logger.info("** launching upload **");
 
@@ -372,7 +393,9 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			// noop
 		}
 
-		uploadProcess = new ProgramLauncher(uploadCommand + " -p " + portName + " -i " + uploadFile);
+		String command = MessageFormat.format("{0} -p {1} -b {2} -i {3}", uploadCommand, portName, boardName, uploadFile);
+		logger.info(command);
+		uploadProcess = new ProgramLauncher(command);
 		if (!console.isRaw()) {
 			uploadProcess.setOutMask("\033[32m", "\033[0m\n");
 			uploadProcess.setErrMask("\033[32m", "\033[0m\n");

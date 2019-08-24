@@ -33,7 +33,7 @@ public class Console extends Thread {
 		options.addOption("h", "help", false, "usage");
 		options.addOption("l", "linemode", true, "line mode cr, lr, crlf or none (default)");
 		options.addOption("r", "raw", false, "raw mode. Console output is raw, no history nor editing facilities");
-		options.addOption("o", "output", false, "output mode : hex, ascii or raw");
+		options.addOption("o", "output", true, "output mode : hex, ascii or raw");
 	}
 	static public Options getOptions() {
 		return options;
@@ -53,8 +53,9 @@ public class Console extends Thread {
 		public void onOutgoingData(byte data[]);
 
 		/**
-		 * called when console receives command it can't handle itself
+		 * called when console receives command before trying to handle it itself
 		 * @param command command line, without '!' prefix
+		 * @return true if peer as handled the command
 		 */
 		public boolean onCommand(String command);
 
@@ -62,7 +63,7 @@ public class Console extends Thread {
 		 * called when console is closed (Ctrl-D or !exit command, or unrecoverable error)
 		 * @param status 0 for normal exit, error code else
 		 */
-		public void onDisconnect(int status);
+		public void onExit(int status);
 	}
 
 	protected boolean raw = false;
@@ -216,6 +217,8 @@ public class Console extends Thread {
 		}
 		try {
 			console.insertString(toDisplay);
+		} catch (NullPointerException e) {
+			logger.error("console is null (start up race condition ?)");
 		} catch (IOException e) {
 			logger.error("Couldn't display incoming data", e);
 		}
@@ -380,7 +383,7 @@ public class Console extends Thread {
 			console = new MyConsole(raw);
 		} catch (IOException e) {
 			logger.error("Can't initialize console", e);
-			peer.onDisconnect(1);
+			peer.onExit(1);
 			return;
 		} 
 
@@ -403,7 +406,7 @@ public class Console extends Thread {
 						} else {
 							if ("!exit".equals(inputLine)) {
 								logger.debug("Exit console");
-								peer.onDisconnect(0);
+								peer.onExit(0);
 								return;
 							}
 							handleCommand(inputLine.substring(1));
@@ -418,10 +421,10 @@ public class Console extends Thread {
 				}
 			}
 			logger.debug("EOF");
-			peer.onDisconnect(0);
+			peer.onExit(0);
 		} catch (IOException e) {
 			logger.error("Exception with input, cancelling console", e);
-			peer.onDisconnect(1);
+			peer.onExit(1);
 //			e.printStackTrace();
 		}
 	}

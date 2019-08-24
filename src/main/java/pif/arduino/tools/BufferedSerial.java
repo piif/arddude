@@ -3,11 +3,14 @@ package pif.arduino.tools;
 import pif.arduino.Console;
 import java.util.Timer;
 import java.util.TimerTask;
+import org.apache.log4j.Logger;
 
 /**
  * have to extend Serial class to implement message() method
  */
 public class BufferedSerial extends MySerial {
+	Logger logger = Logger.getLogger(BufferedSerial.class);
+
 	Console console;
 
 	final static int MAX_BUFFER = 1024;
@@ -19,7 +22,7 @@ public class BufferedSerial extends MySerial {
 	// and send them to console after a short delay
 	// to avoid to split packets
 	final static int FLUSH_DELAY = 100; // in milliseconds 
-	Timer flushTimer;
+	Timer flushTimer = null;
 
 	class FlushTask extends TimerTask {
 		public void run() {
@@ -31,7 +34,11 @@ public class BufferedSerial extends MySerial {
 
 	protected void prepareFlush() {
 		pendingFlush = new FlushTask();
-		flushTimer.schedule(pendingFlush, FLUSH_DELAY);
+		if(flushTimer != null) {
+			flushTimer.schedule(pendingFlush, FLUSH_DELAY);
+		} else {
+			logger.error("flushTimer is null (start up race condition ?)");
+		}
 	}
 
 	protected void flush() {
