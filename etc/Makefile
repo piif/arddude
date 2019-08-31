@@ -7,12 +7,13 @@ PROJECT_DIR := ${CURDIR}
 $(info running from ${PROJECT_DIR})
 
 PROJECT_NAME:= $(notdir ${PROJECT_DIR})
-MAIN_SOURCE := ${PROJECT_NAME}.ino
+PROJECT_MAIN ?= ${PROJECT_NAME}
+MAIN_SOURCE := ${PROJECT_MAIN}.ino
 
 BUILD_PATH := ${PROJECT_DIR}/build
 
 # allow user to add :
-# - specific options to arduino-cli compile and upload commands
+# - specific options to arduino-builder compile and upload commands
 # - default values to BOARD, PORT and BAUDRATE (but command line may override them)
 # - MAIN_SOURCE, BUILD_PATH (why not ?)
 -include makefile.def
@@ -31,39 +32,39 @@ PORT ?= $(shell arduino-cli board list --format json | jq --arg BOARD ${BOARD} -
 
 BAUDRATE ?= 115200
 
+LIBRARY_PATH_OPTS = $(patsubst %,-libraries %,${LIBRARY_PATH})
+
+ARDUINO_DATA ?= $(shell arduino-cli config dump --format text | grep arduino_data | cut -d ' ' -f 2)
+HARDWARE ?= ${ARDUINO_DATA}/packages
+
 $(info Using board=${BOARD} port=${PORT} baudrate=${BAUDRATE})
 
-ELF_FILE := ${BUILD_PATH}/${PROJECT_NAME}.${BOARD_DOT}.elf
-HEX_FILE := ${BUILD_PATH}/${PROJECT_NAME}.${BOARD_DOT}.hex
-DEP_FILE := ${BUILD_PATH}/${PROJECT_NAME}.deps
+HEX_FILE := ${BUILD_PATH}/${PROJECT_MAIN}.hex
 
 # rules
 
-.PHONY: clean compile upload console all
+.PHONY: clean compile upload console
 
 all: compile
 
 clean:
 	rm -rf ${BUILD_PATH}
 
-# TODO : how to depend to library changes or other .h/.c files ?
-${DEP_FILE}: ${MAIN_SOURCE}
-	@# preprocess phase creates a includes.json file
-	arduino-cli compile -b ${BOARD} --build-path ${BUILD_PATH}/tmp --preprocess > /dev/null
-	@# deduce source dependencies
-	jq --arg SRC ${MAIN_SOURCE} \
-		-r 'map(select(.Include != "") | $$SRC+": "+.Includepath+"/"+.Include)[]' \
-		< ${BUILD_PATH}/tmp/includes.cache > ${DEP_FILE}
+${BUILD_PATH}:
+	mkdir -p ${BUILD_PATH}
 
--include ${DEP_FILE}
+# TODO : builder rewrite hex file even when nothing was modified
+# copy .hex file to another place (with DOT_BOARD name)
+# write .hex check sum in a file and override target hex file only if modified
+# => console won't upload ahex file if it's unmodified
 
-compile : ${HEX_FILE}
-
-${HEX_FILE} : ${DEP_FILE} ${MAIN_SOURCE}
-	arduino-cli compile -b ${BOARD} ${ARDUINO_CLI_COMPILE_OPTIONS} --build-path ${BUILD_PATH}/tmp -o ${HEX_FILE} ${PROJECT_DIR}
+compile: ${BUILD_PATH}
+	arduino-builder ${LIBRARY_PATH_OPTS} \
+		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
+		-compile ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE}
 
 upload : ${HEX_FILE}
-	arduino-cli upload -b ${BOARD} -p ${PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTIONS}
+	arduino-cli upload -b ${BOARD} -p ${PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTS}
 
 console:
 	${MAKEFILE_DIR}/console.sh -p ${PORT} -s ${BAUDRATE} -b ${BOARD} ${ARDDUDE_OPTIONS} -f ${HEX_FILE}

@@ -1,52 +1,44 @@
-arddude next generation
+arddude third generation
 =======
 
-This new version of ArdDude is the base for a complete Arduino tool chain.
-It needs Arduino IDE to be installed (tested on version 1.6) to find compilers and boards descriptors and tools to read them.
+This rework of ArdDude is made to work with arduino-cli software (https://blog.arduino.cc/2018/08/24/announcing-the-arduino-command-line-interface-cli/)
+and arduino-builder (https://github.com/arduino/arduino-builder)
+It needs arduino-cli to be installed; arduino IDE is no more used at all.
 
 This project contains 2 parts :
 
 ArdConsole
 -----
 
-This is a new version of old ArdDude utility.
-It's goal is to connect to Arduino serial monitor, and be able to upload new sketch and reconnect just after.
-It needs Arduino IDE installation path (under windows, it looks for default one) and is able to :
-* dump available serial ports (and find Arduino type connected on it when possible)
-* dump available boards (native ones, or user supplied ones in sketchbook/hardware directory)
-* connect to port
+This tool is an enhanced serial console, with :
+* meta command to connect or change serial port or baudrate
+* ability to scan changes in a file and to upload it automatically (no need to disconnect, launch upload, reopen serial monitor)
 * display incomming data as raw, ascii or hex dump
 * send data from input in hex or raw
 
 run etc/console.sh or etc\console.bat with --help option for more information
+  TODO : update these files
 
 
-MakeMake
+Makefile
 -----
 
-This utility is made to be called from makefiles available in etc directory.
-It generates Makefile rules from arduino descriptor files, to run compilation tools included in Arduino IDE
-Those makefiles are ready to launch from Eclipse environment, or from command line.
+This makefile is a generic one to compile, upload, launch console.
+It can be used from any arduino project to compile it and collaborate with ArdDude
 
-Documentation about this tool chain is still uncomplete, but Eclipse.Howto.md file give indication on how to use it from Eclipse IDE.
+*** explain command line "-f ..." , variables , makefile.def
 
 TODO
 ----
 About serial console :
 
-* auto-completion in ArdConsole
+* auto-completion in ArdConsole ?
 * deep testing
-* test console from dos, cygwin ... -> see https://github.com/mintty/mintty https://github.com/git-for-windows/git/blob/master/compat/winansi.c (isatty) and https://github.com/mintty/mintty/issues/56
+* test console from dos, cygwin, MacOS ... -> see https://github.com/mintty/mintty https://github.com/git-for-windows/git/blob/master/compat/winansi.c (isatty) and https://github.com/mintty/mintty/issues/56
+* test with arduino variants (ATtiny, Yun) or other platforms (ESP)
 
-About tools chain :
-
-* upload thru "arduino as isp" doesn't work, and some parameters are not taken
-  (baudrate with sanguino)
-* adapt to newer arduino IDE versions
-* strange behavior with custom libcore (tiny without millis) 
- 
 Known issues
 ----
-* have to reset line at ArdConsole launch from linux (at least with uno)
 * inline help is out to date
-* processing.app.Serial eats cr/lf thus loose cr/lf mode and join lines if flush delay is too long 
+* shell and bat helper are out to date
+* blank lines are displayed after each serial input
