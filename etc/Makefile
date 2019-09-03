@@ -34,12 +34,17 @@ BAUDRATE ?= 115200
 
 LIBRARY_PATH_OPTS = $(patsubst %,-libraries %,${LIBRARY_PATH})
 
-ARDUINO_DATA ?= $(shell arduino-cli config dump --format text | grep arduino_data | cut -d ' ' -f 2)
+ARDUINO_DATA ?= $(shell arduino-cli config dump --format json | jq -r .arduino_data)
 HARDWARE ?= ${ARDUINO_DATA}/packages
 
 $(info Using board=${BOARD} port=${PORT} baudrate=${BAUDRATE})
 
-HEX_FILE := ${BUILD_PATH}/${PROJECT_MAIN}.hex
+HEX_FILE := ${BUILD_PATH}/$(notdir ${MAIN_SOURCE}).hex
+CPP_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp
+OBJ_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp.o
+DEP_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp.d
+
+-include ${DEP_FILE}
 
 # rules
 
@@ -56,12 +61,23 @@ ${BUILD_PATH}:
 # TODO : builder rewrite hex file even when nothing was modified
 # copy .hex file to another place (with DOT_BOARD name)
 # write .hex check sum in a file and override target hex file only if modified
-# => console won't upload ahex file if it's unmodified
+# => console won't upload a hex file if it's unmodified
 
-compile: ${BUILD_PATH}
+#${DEP_FILE}: ${BUILD_PATH} ${MAIN_SOURCE}
+#	arduino-builder ${LIBRARY_PATH_OPTS} \
+#		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
+#		-compile ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE}
+
+#${HEX_FILE} : ${OBJ_FILE}
+#${OBJ_FILE} : ${CPP_FILE}
+#${CPP_FILE} : ${BUILD_PATH} ${MAIN_SOURCE}
+
+${HEX_FILE} ${OBJ_FILE} ${CPP_FILE} : ${BUILD_PATH} ${MAIN_SOURCE}
 	arduino-builder ${LIBRARY_PATH_OPTS} \
 		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
 		-compile ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE}
+
+compile: ${HEX_FILE}
 
 upload : ${HEX_FILE}
 	arduino-cli upload -b ${BOARD} -p ${PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTS}
