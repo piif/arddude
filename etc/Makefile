@@ -43,36 +43,106 @@ HEX_FILE := ${BUILD_PATH}/$(notdir ${MAIN_SOURCE}).hex
 CPP_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp
 OBJ_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp.o
 DEP_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp.d
-
--include ${DEP_FILE}
+PROPS_FILE := ${BUILD_PATH}/${BOARD_DOT}.properties
+INCLS_FILE := ${BUILD_PATH}/${BOARD_DOT}.includes
+MACRO_FILE := ${BUILD_PATH}/${BOARD_DOT}.macros
 
 # rules
 
-.PHONY: clean compile upload console
+.PHONY: clean compile upload console macros includes
 
 all: compile
 
+## generate a file with all arduino properties
+${PROPS_FILE}: | ${BUILD_PATH}
+	arduino-cli compile --show-properties --fqbn ${BOARD} ${MAIN_SOURCE} \
+	| sed 's/{/$${/g' \
+	> ${PROPS_FILE}
+
+## then include it
+-include ${PROPS_FILE}
+
+## idem or include path
+${INCLS_FILE}.lst ${INCLS_FILE}: ${BUILD_PATH}/includes.cache | ${BUILD_PATH}
+	jq -r 'map(.Includepath)[] | select (. != null)' ${BUILD_PATH}/includes.cache \
+	> ${INCLS_FILE}.lst
+	echo "includes:=$$( \
+	  sed 's/^/-I/' ${INCLS_FILE}.lst \
+	  | tr '\n' ' ' \
+	)" > ${INCLS_FILE}
+
+-include ${INCLS_FILE}
+
+## generate a makefile dependencies file
+## this step is done par arduino-builder also => see rule below
+#${BUILD_PATH}/includes.cache ${DEP_FILE}: ${BUILD_PATH} ${MAIN_SOURCE}
+
+-include ${DEP_FILE}
+
+## some variables refered to in this file are not defined; some are useless for us, but some must be defined "manually"
+#	archive_file
+#	bootloader.verbose
+#	build.pid
+#	build.usb_product
+#	build.vid
+#	cmd.path
+#	codecomplete
+#	config.path
+#	erase.verbose
+# includes defined by "INCLS_FILE" rule
+#	network_cmd
+#	object_file
+#	object_files
+#	path
+# force "gcc -E" to sned its output to stdout
+preprocessed_file_path:=-
+#	program.extra_params
+#	program.verbose
+#	program.verify
+#	protocol
+#	runtime.tools.arduino-preprocessor.path
+#	serial.port
+# needed to call "gcc -E"
+source_file:=${CPP_FILE}
+#	upload.network.endpoint_reset
+#	upload.network.endpoint_sync
+#	upload.network.endpoint_upload
+#	upload.network.port
+#	upload.network.sync_return
+#	upload.verbose
+#	upload.verify
+
 clean:
-	rm -rf ${BUILD_PATH}
+	[ -d ${BUILD_PATH} ] && rm -rf ${BUILD_PATH}/*
 
 ${BUILD_PATH}:
 	mkdir -p ${BUILD_PATH}
+
+# rule to be called by IDE to define source indexes
+macros: ${MACRO_FILE}
+${MACRO_FILE}: ${PROPS_FILE}
+	${recipe.preproc.includes:-M=-E -dM} -o ${MACRO_FILE}
+
+includes: ${INCLS_FILE}
+	echo ${includes}
+
+eclipse.settings.xml: ${INCLS_FILE}.lst ${MACRO_FILE}
+	${MAKEFILE_DIR}/eclipseSettings.sh ${INCLS_FILE}.lst ${MACRO_FILE} > eclipse.settings.xml
 
 # TODO : builder rewrite hex file even when nothing was modified
 # copy .hex file to another place (with DOT_BOARD name)
 # write .hex check sum in a file and override target hex file only if modified
 # => console won't upload a hex file if it's unmodified
 
-#${DEP_FILE}: ${BUILD_PATH} ${MAIN_SOURCE}
-#	arduino-builder ${LIBRARY_PATH_OPTS} \
-#		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
-#		-compile ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE}
-
 #${HEX_FILE} : ${OBJ_FILE}
 #${OBJ_FILE} : ${CPP_FILE}
 #${CPP_FILE} : ${BUILD_PATH} ${MAIN_SOURCE}
 
-${HEX_FILE} ${OBJ_FILE} ${CPP_FILE} : ${BUILD_PATH} ${MAIN_SOURCE}
+${BUILD_PATH}/includes.cache \
+${DEP_FILE} \
+${HEX_FILE} \
+${OBJ_FILE} \
+${CPP_FILE} : ${MAIN_SOURCE} | ${BUILD_PATH}
 	arduino-builder ${LIBRARY_PATH_OPTS} \
 		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
 		-compile ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE}
@@ -80,8 +150,7 @@ ${HEX_FILE} ${OBJ_FILE} ${CPP_FILE} : ${BUILD_PATH} ${MAIN_SOURCE}
 compile: ${HEX_FILE}
 
 upload : ${HEX_FILE}
-	arduino-cli upload -b ${BOARD} -p ${PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTS}
+	arduino-cli upload --fqbn ${BOARD} -p ${PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTS}
 
 console:
-	${MAKEFILE_DIR}/console.sh -p ${PORT} -s ${BAUDRATE} -b ${BOARD} ${ARDDUDE_OPTIONS} -f ${HEX_FILE}
-	
+	${MAKEFILE_DIR}/console.sh --fqbn ${BOARD} -p ${PORT} -s ${BAUDRATE} ${ARDDUDE_OPTIONS} -f ${HEX_FILE}
