@@ -35,6 +35,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 
 	protected String boardName = null;
 	protected String portName = null;
+	protected String uploadPortName = null;
 	protected int baudrate = DEFAULT_BAUDRATE;
 
 	protected File uploadFile;
@@ -53,8 +54,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		options = Console.getOptions();
 		options.addOption("a", "arduino-cli", true, "arduino-cli command and global options");
 
-		options.addOption("p", "port", true, "set port to connect to");
-		options.addOption("s", "baudrate", true, "set port baudrate (defaults to " + DEFAULT_BAUDRATE + ")");
+		options.addOption("p", "port", true, "set port to connect to for communication");
+		options.addOption("P", "upload-port", true, "set port to connect to for upload command (defaults to communication one)");
+
+		options.addOption("s", "baudrate", true, "set port baudrate for communication (defaults to " + DEFAULT_BAUDRATE + ")");
 
 		options.addOption("f", "file", true, "file to scan / upload");
 		options.addOption("b", "boardname", true, "set board fqbn (mandatory for upload)");
@@ -98,6 +101,9 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		try {
 			if (commandLine.hasOption('p')) {
 				portName = commandLine.getOptionValue('p');
+			}
+			if (commandLine.hasOption('P')) {
+				uploadPortName = commandLine.getOptionValue('P');
 			}
 			if (commandLine.hasOption('s')) {
 				baudrate = Integer.parseInt(commandLine.getOptionValue('s'));
@@ -164,8 +170,10 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	void commandsHelp() {
-		String help = "  !port xxx : set current serial port (like -p option)\n"
-				+ "  !baudrate nn : set baudrate\n"
+		String help = "  !port xxx : set current serial port for communication (like -p option)\n"
+				+ "  !uploadPort nn : set baudrate for upload\n"
+				+ "  !baudrate nn : set baudrate for communication\n"
+				+ "  !uploadBaudrate nn : set baudrate for upload\n"
 				+ "  !boardname board : set boardname\n"
 				+ "  !connect and !disconnect : as the name suggests ...\n"
 				+ "  !reset : try to reset serial port, then reconnect if was connected (useful after upload in some cases)\n"
@@ -200,6 +208,9 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			break;
 		case "port":
 			portName = args;
+			break;
+		case "uploadPort":
+			uploadPortName = args;
 			break;
 		case "baudrate":
 			baudrate = Integer.parseInt(args);
@@ -344,6 +355,9 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	protected void status(PrintStream output) {
 		if (portName != null) {
 			output.println("Configured to connect on port " + portName);
+			if (uploadPortName != null) { 
+				output.println("           and upload on port " + uploadPortName);
+			}
 		}
 		output.println("Baudrate is " + baudrate);
 
@@ -369,10 +383,19 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 	}
 
 	protected void launchUpload() {
-		if (portName == null) {
-			logger.error("port was not specified, can't connect");
-			return;
+		String effectivePort;
+	
+		if (uploadPortName == null) {
+			if (portName == null) {
+				logger.error("port was not specified, can't connect");
+				return;
+			} else {
+				effectivePort = portName;
+			}
+		} else {
+			effectivePort = uploadPortName;
 		}
+
 		if (boardName == null) {
 			logger.error("board was not specified, can't launch upload");
 			return;
@@ -393,7 +416,7 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 			// noop
 		}
 
-		String command = MessageFormat.format("{0} -p {1} -b {2} -i {3}", uploadCommand, portName, boardName, uploadFile);
+		String command = MessageFormat.format("{0} -p {1} -b {2} -i {3} -t", uploadCommand, effectivePort, boardName, uploadFile);
 		logger.info(command);
 		uploadProcess = new ProgramLauncher(command);
 		if (!console.isRaw()) {

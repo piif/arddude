@@ -29,7 +29,7 @@ BOARD_DOT := $(subst :,.,${BOARD})
 
 PORT ?= $(shell arduino-cli board list --format json | jq --arg BOARD ${BOARD} -r \
   'map({ a:.address, f: .boards | map(.FQBN)[] | select(.==$$BOARD) }) | map(.a)[]' )
-
+UPLOAD_PORT ?= ${PORT}
 BAUDRATE ?= 115200
 
 LIBRARY_PATH_OPTS = $(patsubst %,-libraries %,${LIBRARY_PATH})
@@ -37,7 +37,7 @@ LIBRARY_PATH_OPTS = $(patsubst %,-libraries %,${LIBRARY_PATH})
 ARDUINO_DATA ?= $(shell arduino-cli config dump --format json | jq -r .arduino_data)
 HARDWARE ?= ${ARDUINO_DATA}/packages
 
-$(info Using board=${BOARD} port=${PORT} baudrate=${BAUDRATE} source=${MAIN_SOURCE})
+$(info Using board=${BOARD} port=${PORT} upload port=${UPLOAD_PORT} baudrate=${BAUDRATE} source=${MAIN_SOURCE})
 
 HEX_FILE := ${BUILD_PATH}/$(notdir ${MAIN_SOURCE}).hex
 CPP_FILE := ${BUILD_PATH}/sketch/$(notdir ${MAIN_SOURCE}).cpp
@@ -160,7 +160,7 @@ ${OBJ_FILE} : ${MAIN_SOURCE} | ${BUILD_PATH}
 compile: ${HEX_FILE}
 
 upload : | ${HEX_FILE}
-	arduino-cli upload --fqbn ${BOARD} --port ${PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTS}
+	arduino-cli upload --fqbn ${BOARD} --port ${UPLOAD_PORT} -i ${HEX_FILE} ${ARDUINO_CLI_UPLOAD_OPTS}
 
 console:
-	${MAKEFILE_DIR}/console.sh --boardname ${BOARD} --port ${PORT} -s ${BAUDRATE} ${ARDDUDE_OPTIONS} -f ${HEX_FILE}
+	${MAKEFILE_DIR}/console.sh --boardname ${BOARD} --port ${PORT} --upload-port ${UPLOAD_PORT} -s ${BAUDRATE} ${ARDDUDE_OPTIONS} -f ${HEX_FILE}

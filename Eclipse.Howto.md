@@ -40,7 +40,7 @@ Create a project
 
 * Select menu "File -> New -> Project" then "C/C++ Project" in "C/C++" section
 * Then choose type "Managed C/C++ project" (not "Makefile project")
-* In the next widow, choose a name, select a project folder (in ~/Arduino if you want to stay compatible
+* In the next window, choose a name, select a project folder (in ~/Arduino if you want to stay compatible
   with Arduino IDE), choose the type "Empty project" in "Makefile project" section and leave empty
   the toolchain choice.
 * Click "Finish" and your project should appear in the left panel (if not, you certainly have to edit your current working set).
@@ -56,8 +56,8 @@ To solve this problem, from command line, "cd" into this directory and :
 * if you didn't create your main source file, create it empty :
   touch your_project_name.ino
 
-* launch following command :
-  make -f /path/to/arddude/etc/Makefile eclipse 
+* launch following command (adapt to your target board) :
+  make -f /path/to/arddude/etc/Makefile eclipse BOARD=arduino:avr:uno
 
   This command will create a file named eclipse.settings.xml in your project directory
 
@@ -78,12 +78,29 @@ If your code relies on external libraries, you have to include their header file
 In order to enable syntax check and auto-completion on it, you need to run again previous step
 (make .. eclipse + import settings)
 
+To specify the library location, add this argument to "make" command :
+  LIBRARY_PATH="/path/to/library1 /path/to/library2"
+
+
+Don't repeat command line arguments
+--
+
+Argument to specify on each "make" call may be written once in a makefile.def file with such content :
+	BOARD := arduino:avr:uno
+	PORT := /dev/ttyUSB0
+	LIBRARY_PATH := /path/to/library1 /path/to/library2
+	ARDDUDE_OPTIONS := -l cr -o raw -d
+
+Those definitions will be included by main Makefile
+
+
 Compile
 --
 In project properties windows, select "C/C++ build" and in "build command" type in
   make -C ${ProjDirPath} -f ${workspace_loc:ArdDude/etc/Makefile}
 
 Select your source code in left panel then click on "build 'default'" (hammer icon)
+
 
 Console
 --
