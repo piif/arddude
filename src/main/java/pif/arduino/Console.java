@@ -1,6 +1,8 @@
 package pif.arduino;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
@@ -288,6 +290,44 @@ public class Console extends Thread {
 				if (data != null) {
 					peer.onOutgoingData(data);
 				}
+			} else if (line.startsWith("read ")) {
+				String filename;
+				int delay = 0;
+				int space = line.indexOf(' ');
+				if (space == -1) {
+					logger.error("read command needs a filename. Type !help or !? for help");
+					return;
+				}
+				filename = line.substring(space + 1);
+				space = filename.indexOf(' ', space + 1);
+				if (space != -1) {
+					try {
+						delay = Integer.parseInt(filename.substring(space + 1));
+					} catch(NumberFormatException e) {
+						logger.error("read command needs a integer as 2nd argument. Type !help or !? for help");
+					}
+					filename = filename.substring(0, space);
+				}
+				try {
+					BufferedReader inFile = new BufferedReader(new FileReader(filename));
+					final int _delay = delay;
+					inFile.lines().forEach((fileline) -> {
+						logger.debug("Sending '" + fileline + "'");
+						peer.onOutgoingData(fileline.getBytes());
+						peer.onOutgoingData(lineMode.getBytes());
+						if (_delay != 0) {
+							try {
+								Thread.sleep(_delay);
+							} catch (InterruptedException e) {}
+						}
+					});
+					inFile.close();
+				} catch (FileNotFoundException e) {
+					logger.error("read command can't open file " + filename + ". Type !help or !? for help");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					logger.error("read command failed to close file", e);
+				}
 			} else {
 				logger.warn("Unknown command " + line + ". Type !help or !? for help");
 			}
@@ -309,7 +349,7 @@ public class Console extends Thread {
 		//  1 = waiting for high part of a byte value
 		//  2 = waiting for low part of a byte value
 		// TODO 0d123 => input decimal value
-		// TODO 0w123 or 0w-123 or => word big endian value
+		// TODO 0w123 or 0w-123 => word big endian value
 		// TODO 0l123 or 0l-123 => long big endian value
 		// for these options, detect d, w or l when state==1 => state = 3 / 4 / 5
 		// + flag (-3 / -4 / -5 ?) to handle negative value
@@ -417,7 +457,6 @@ public class Console extends Thread {
 					}
 				} catch (Exception e) {
 					logger.info("Exception in console loop", e);
-//					e.printStackTrace();
 				}
 			}
 			logger.debug("EOF");
@@ -425,19 +464,18 @@ public class Console extends Thread {
 		} catch (IOException e) {
 			logger.error("Exception with input, cancelling console", e);
 			peer.onExit(1);
-//			e.printStackTrace();
 		}
 	}
 
 	void help() {
-		// TODO
 		String help = "Any byte incomming from peer is displayed in a format according to display mode (see hex, rax and ascii command below)"
 				+ "Any character entered in console are filled in a sending buffer, excepted if line begins with '!'.\n"
-				+ "  When hitting enter, end of line characters are appended, and buffer is sent to peer.\n"
+				+ "  When hitting enter, end of line characters are appended and buffer is sent to peer.\n"
 				+ "  End of line character depends on current line mode, which is 'none' by default (thus no character).\n"
-				+ "  To change this mode see cr, lf, .. commands below.\n"
+				+ "  To change this mode see cr, lf, crlf and none commands below.\n"
 				+ "  To send explicitly a line beginning by '!', double it ('!!')\n"
-				+ "Lines begining with a '!' start a command :"
+				+ "Lines begining with a '!' start a command :\n"
+				+ "  !help or !? : this help\n"
 				+ "  !exit (or Ctrl-D) : exit console program\n"
 				+ "  ! : resend last sending buffer, including its end of line characters (even if line mode has been modified)\n"
 				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C\n"
@@ -446,7 +484,10 @@ public class Console extends Thread {
 				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\\r', '\\n', '\\r\\n', nothing\n"
 				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text\n"
 				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ]\n"
-				+ "    Caution : this not does NOT append end of line characters, whatever current line mode";
+				+ "    Caution : this not does NOT append end of line characters, whatever current line mode\n"
+				+ "  !read filepath [ delay ] : read filepath and send it to peer line by line.\n"
+				+ "    Current linefeed mode is sent after each line\n"
+				+ "    Pause 'delay' ms between lines, if specified";
 		System.out.println(help);
 	}
 }
