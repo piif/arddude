@@ -321,48 +321,59 @@ public class Console extends Thread {
 					peer.onOutgoingData(data);
 				}
 			} else if (line.startsWith("read ")) {
-				String filename;
-				int delay = 0;
-				int space = line.indexOf(' ');
-				if (space == -1) {
+				String[] args = line.substring(4).split("\\s+");
+				for(int i = 0; i < args.length; i++) {
+					System.out.println("'" + args[i] + "'");
+				}
+				// args[0] is empty as string begins with a space
+				if (args.length <= 1) {
 					logger.error("read command needs a filename. Type !help or !? for help");
 					return;
 				}
-				filename = line.substring(space + 1);
-				space = filename.indexOf(' ', space + 1);
-				if (space != -1) {
-					String remaining = filename.substring(space + 1);
-					if (remaining.length()>2 && remaining.charAt(0) == '"') {
-						ackBytes = remaining.substring(1, remaining.length()-1).getBytes();
-					} else {
-						try {
-							delay = Integer.parseInt(remaining);
-						} catch(NumberFormatException e) {
-							logger.error("read command needs a integer as 2nd argument. Type !help or !? for help");
+				String filename = args[1];
+				int delay = 0;
+				int delayIndex = -1;
+				if (args.length >= 3) {
+					if (args[2].charAt(0) == '"') {
+						ackBytes = args[2].substring(1, args[2].length()-1).getBytes();
+						delay = 2000; // default timeout when ack string
+						if (args.length > 3) {
+							delayIndex = 3;
 						}
+					} else {
+						delayIndex = 2;
 					}
-					filename = filename.substring(0, space);
+				}
+				if (delayIndex != -1) {
+					try {
+						delay = Integer.parseInt(args[delayIndex]);
+					} catch(NumberFormatException e) {
+						logger.error("read command needs a integer as argument #" + delayIndex + ". Type !help or !? for help");
+					}
 				}
 				try {
 					BufferedReader inFile = new BufferedReader(new FileReader(filename));
+					logger.debug("Sending '" + filename + "'");
+					if (ackBytes != null) {
+						logger.debug("   with ack '" + new String(ackBytes) + "'");
+					}
+					if (delay != 0) {
+						logger.debug("   with delay " + delay);
+					}
 					String fileline;
 					for(;;) {
 						fileline = inFile.readLine();
 						if (fileline == null) {
 							break;
 						}
-						logger.debug("Sending '" + fileline + "'");
+						logger.debug("Sending line '" + fileline + "'");
 						peer.onOutgoingData(fileline.getBytes());
 						peer.onOutgoingData(lineMode.getBytes());
-						if (delay != 0) {
-							try {
-								Thread.sleep(delay);
-							} catch (InterruptedException e) {}
-						} else if (ackBytes != null) {
+						if (ackBytes != null) {
 							synchronized (ackBytes) {
 								try {
 									logger.debug("Waiting ACK");
-									ackBytes.wait(2000);
+									ackBytes.wait(delay);
 									if (!ackReceived) {
 										logger.error("ack not received, file read aborted");
 										break;
@@ -370,6 +381,10 @@ public class Console extends Thread {
 									ackReceived = false;
 								} catch (InterruptedException e) {}								
 							}
+						} else if (delay != 0) {
+							try {
+								Thread.sleep(delay);
+							} catch (InterruptedException e) {}
 						}
 					}
 					inFile.close();
@@ -527,21 +542,21 @@ public class Console extends Thread {
 				+ "  When hitting enter, end of line characters are appended and buffer is sent to peer.\n"
 				+ "  End of line character depends on current line mode, which is 'none' by default (thus no character).\n"
 				+ "  To change this mode see cr, lf, crlf and none commands below.\n"
-				+ "  To send explicitly a line beginning by '!', double it ('!!')\n"
+				+ "  To send explicitly a line beginning by '!', double it ('!!').\n"
 				+ "Lines begining with a '!' start a command :\n"
-				+ "  !help or !? : this help\n"
-				+ "  !exit (or Ctrl-D) : exit console program\n"
-				+ "  ! : resend last sending buffer, including its end of line characters (even if line mode has been modified)\n"
-				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C\n"
-				+ "  !ascii : printable characters are displayed raw, other ones are displayed in [hh] format (default mode)\n"
-				+ "  !raw : all incomming bytes are displayed raw (default mode if -raw command line option was set)\n"
-				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\\r', '\\n', '\\r\\n', nothing\n"
-				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text\n"
-				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ]\n"
-				+ "    Caution : this not does NOT append end of line characters, whatever current line mode\n"
-				+ "  !read filepath [ delay | \"ack\"] : read filepath and send it to peer line by line.\n"
-				+ "    Current linefeed mode is sent after each line\n"
-				+ "    If specified, waits or 'ack' string after each line"
+				+ "  !help or !? : this help.\n"
+				+ "  !exit (or Ctrl-D) : exit console program.\n"
+				+ "  ! : resend last sending buffer, including its end of line characters (even if line mode has been modified).\n"
+				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C.\n"
+				+ "  !ascii : printable characters are displayed raw, other ones are displayed in [hh] format (default mode).\n"
+				+ "  !raw : all incomming bytes are displayed raw (default mode if -raw command line option was set).\n"
+				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\\r', '\\n', '\\r\\n', nothing.\n"
+				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text.\n"
+				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ].\n"
+				+ "    Caution : this not does NOT append end of line characters, whatever current line mode.\n"
+				+ "  !read filepath [ delay | \"ack\" [ timeout ] ] : read filepath and send it to peer line by line.\n"
+				+ "    Current linefeed mode is sent after each line.\n"
+				+ "    If specified, waits to receive back 'ack' string after each line, or cancel if timeout expires (defaults to 2000ms).\n"
 				+ "    Pauses 'delay' ms between lines, if specified";
 		System.out.println(help);
 	}
