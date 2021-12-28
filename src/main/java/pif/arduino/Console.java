@@ -157,7 +157,7 @@ public class Console extends Thread {
 
 	/**
 	 *  console where incoming data are displayed and command input comes from
-	 *  wraps JLineConsole or System.in/out according to raw mode
+	 *  wrapped JLineConsole or System.in/out according to raw mode
 	 */
 	protected class MyConsole {
 		// jline version if not raw
@@ -192,6 +192,29 @@ public class Console extends Thread {
 	}
 	protected MyConsole console;
 
+	protected byte[] ackBytes = null;
+	protected boolean ackReceived = false;
+
+	protected static boolean bytesCompare(byte[] a, byte[] b, int bFrom) {
+		for (int i=0; i<a.length; i++) {
+			if (a[i] != b[i+bFrom]) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	protected static boolean findBytes(byte[] toFind, byte[] buffer, int length) {
+		if (toFind.length > length) {
+			return false;
+		}
+		for (int i = 0; i < length-toFind.length+1; i++) {
+			if (bytesCompare(toFind, buffer, i)) {
+				return true;
+			}
+		}
+		return false;
+	}
 	/*
 	 * peer sends data it receives thru this method
 	 */
@@ -223,6 +246,13 @@ public class Console extends Thread {
 			logger.error("console is null (start up race condition ?)");
 		} catch (IOException e) {
 			logger.error("Couldn't display incoming data", e);
+		}
+		if (ackBytes != null && findBytes(ackBytes, data, length)) {
+			synchronized (ackBytes) {
+				logger.debug("Found ACK");
+				ackReceived = true;
+				ackBytes.notify();
+			}			
 		}
 	}
 
@@ -301,32 +331,56 @@ public class Console extends Thread {
 				filename = line.substring(space + 1);
 				space = filename.indexOf(' ', space + 1);
 				if (space != -1) {
-					try {
-						delay = Integer.parseInt(filename.substring(space + 1));
-					} catch(NumberFormatException e) {
-						logger.error("read command needs a integer as 2nd argument. Type !help or !? for help");
+					String remaining = filename.substring(space + 1);
+					if (remaining.length()>2 && remaining.charAt(0) == '"') {
+						ackBytes = remaining.substring(1, remaining.length()-1).getBytes();
+					} else {
+						try {
+							delay = Integer.parseInt(remaining);
+						} catch(NumberFormatException e) {
+							logger.error("read command needs a integer as 2nd argument. Type !help or !? for help");
+						}
 					}
 					filename = filename.substring(0, space);
 				}
 				try {
 					BufferedReader inFile = new BufferedReader(new FileReader(filename));
-					final int _delay = delay;
-					inFile.lines().forEach((fileline) -> {
+					String fileline;
+					for(;;) {
+						fileline = inFile.readLine();
+						if (fileline == null) {
+							break;
+						}
 						logger.debug("Sending '" + fileline + "'");
 						peer.onOutgoingData(fileline.getBytes());
 						peer.onOutgoingData(lineMode.getBytes());
-						if (_delay != 0) {
+						if (delay != 0) {
 							try {
-								Thread.sleep(_delay);
+								Thread.sleep(delay);
 							} catch (InterruptedException e) {}
+						} else if (ackBytes != null) {
+							synchronized (ackBytes) {
+								try {
+									logger.debug("Waiting ACK");
+									ackBytes.wait(2000);
+									if (!ackReceived) {
+										logger.error("ack not received, file read aborted");
+										break;
+									}
+									ackReceived = false;
+								} catch (InterruptedException e) {}								
+							}
 						}
-					});
+					}
 					inFile.close();
 				} catch (FileNotFoundException e) {
 					logger.error("read command can't open file " + filename + ". Type !help or !? for help");
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					logger.error("read command failed to close file", e);
+				} finally {
+					delay = 0;
+					ackBytes = null;
 				}
 			} else {
 				logger.warn("Unknown command " + line + ". Type !help or !? for help");
@@ -485,9 +539,10 @@ public class Console extends Thread {
 				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text\n"
 				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ]\n"
 				+ "    Caution : this not does NOT append end of line characters, whatever current line mode\n"
-				+ "  !read filepath [ delay ] : read filepath and send it to peer line by line.\n"
+				+ "  !read filepath [ delay | \"ack\"] : read filepath and send it to peer line by line.\n"
 				+ "    Current linefeed mode is sent after each line\n"
-				+ "    Pause 'delay' ms between lines, if specified";
+				+ "    If specified, waits or 'ack' string after each line"
+				+ "    Pauses 'delay' ms between lines, if specified";
 		System.out.println(help);
 	}
 }
