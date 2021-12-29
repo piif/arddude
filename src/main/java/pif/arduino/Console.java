@@ -9,7 +9,8 @@ import java.util.Arrays;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Options;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import pif.arduino.tools.JlineConsole;
 import pif.arduino.tools.hexTools;
@@ -25,7 +26,7 @@ import pif.arduino.tools.hexTools;
  *
  */
 public class Console extends Thread {
-	Logger logger = Logger.getLogger(Console.class);
+	Logger logger = LogManager.getLogger();
 
 	protected ConsolePeer peer;
 

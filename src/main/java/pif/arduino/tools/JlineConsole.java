@@ -1,7 +1,8 @@
 package pif.arduino.tools;
 
 import java.io.IOException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import jline.console.ConsoleReader;
 
 /**
@@ -10,7 +11,7 @@ import jline.console.ConsoleReader;
  * @author pif
  */
 public class JlineConsole extends ConsoleReader {
-	Logger logger = Logger.getLogger(JlineConsole.class);
+	Logger logger = LogManager.getLogger();
 	
 	static {
 		if (System.getenv("TERM") != null && System.getenv("APPDATA") != null) {

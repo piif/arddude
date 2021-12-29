@@ -11,7 +11,11 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 
 import pif.arduino.tools.*;
 
@@ -20,7 +24,7 @@ import pif.arduino.tools.*;
  * @author pif
  */
 public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHandler {
-	private static Logger logger = Logger.getLogger(ArdConsole.class);
+	private static Logger logger = LogManager.getLogger();
 
 	static final short STATE_NONE = 0;
 	static final short STATE_UPLOADING = 1;
@@ -85,7 +89,11 @@ public class ArdConsole implements Console.ConsolePeer, FileScanner.FileScanHand
 		}
 
 		if (commandLine.hasOption('d')) {
-			Logger.getRootLogger().setLevel(org.apache.log4j.Level.DEBUG);
+			LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+			Configuration config = ctx.getConfiguration();
+			LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME); 
+			loggerConfig.setLevel(org.apache.logging.log4j.Level.DEBUG);
+			ctx.updateLoggers();
 		}
 	
 		// ok, it will become a bit more complicated, pass to an instance...

@@ -1,11 +1,12 @@
 package pif.arduino.tests;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import pif.arduino.Console;
 
 public class FakePeer implements Console.ConsolePeer {
-	Logger logger = Logger.getLogger(FakePeer.class);
+	Logger logger = LogManager.getLogger();
 
 	Console console;
 
