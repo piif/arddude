@@ -31,6 +31,9 @@
 						<manifest>
 							<mainClass>${app.main.class}</mainClass>
 						</manifest>
+						<manifestEntries>
+							<Multi-Release>true</Multi-Release>
+						</manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
@@ -41,11 +44,6 @@
 				<configuration>
 					<shadedArtifactAttached>true</shadedArtifactAttached>
 					<shadedClassifierName>shaded</shadedClassifierName>
-					<transformers>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-							<mainClass>${app.main.class}</mainClass>
-						</transformer>
-					</transformers>
 				</configuration>
 				<executions>
 					<execution>
