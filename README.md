@@ -1,9 +1,8 @@
 arddude third generation
 =======
 
-This rework of ArdDude is made to work with arduino-cli software (https://blog.arduino.cc/2018/08/24/announcing-the-arduino-command-line-interface-cli/)
-and arduino-builder (https://github.com/arduino/arduino-builder)
-It only needs arduino-cli and arduino-builder to be installed; arduino IDE is no more used at all.
+This rework of ArdDude is made to work with arduino-cli software (https://blog.arduino.cc/2018/08/24/announcing-the-arduino-command-line-interface-cli/) available at https://github.com/arduino/arduino-cli
+It only needs arduino-cli to be installed; arduino IDE is no more used at all.
 
 This project contains 2 parts :
 

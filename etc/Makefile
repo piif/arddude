@@ -13,7 +13,7 @@ MAIN_SOURCE := ${PROJECT_MAIN}.ino
 BUILD_PATH := ${PROJECT_DIR}/build
 
 # allow user to add :
-# - specific options to arduino-builder compile and upload commands
+# - specific options to arduino-cli compile (ARDUINO_CLI_COMPILE_OPTS) and upload (ARDUINO_CLI_UPLOAD_OPTS) commands
 # - default values to BOARD, PORT and BAUDRATE (but command line may override them)
 # - MAIN_SOURCE, BUILD_PATH (why not ?)
 -include makefile.def
@@ -32,7 +32,7 @@ PORT ?= $(shell arduino-cli board list --format json | jq --arg BOARD ${BOARD} -
 UPLOAD_PORT ?= ${PORT}
 BAUDRATE ?= 115200
 
-LIBRARY_PATH_OPTS = $(patsubst %,-libraries %,${LIBRARY_PATH})
+LIBRARY_PATH_OPTS = $(patsubst %,--libraries %,${LIBRARY_PATH})
 
 ARDUINO_DATA ?= $(shell arduino-cli config dump --format json | jq -r .arduino_data)
 HARDWARE ?= ${ARDUINO_DATA}/packages
@@ -140,22 +140,17 @@ eclipse: eclipse.settings.xml
 eclipse.settings.xml: ${INCLS_FILE}.lst ${MACRO_FILE}
 	${MAKEFILE_DIR}/eclipseSettings.sh ${INCLS_FILE}.lst ${MACRO_FILE} > eclipse.settings.xml
 
-# TODO : builder rewrite hex file even when nothing was modified
-# copy .hex file to another place (with DOT_BOARD name)
-# write .hex check sum in a file and override target hex file only if modified
-# => console won't upload a hex file if it's unmodified
-
 ${CPP_FILE} \
 ${BUILD_PATH}/includes.cache : ${MAIN_SOURCE} | ${BUILD_PATH}
-	arduino-builder ${LIBRARY_PATH_OPTS} \
-		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
-		-preprocess ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE} > /dev/null
+	arduino-cli compile ${LIBRARY_PATH_OPTS} \
+		--fqbn ${BOARD} --build-cache-path ${BUILD_PATH} --build-path ${BUILD_PATH} \
+		--preprocess ${ARDUINO_CLI_COMPILE_OPTS} ${MAIN_SOURCE} > /dev/null
 
 ${HEX_FILE} \
 ${OBJ_FILE} : ${MAIN_SOURCE} | ${BUILD_PATH}
-	arduino-builder ${LIBRARY_PATH_OPTS} \
-		-fqbn ${BOARD} -hardware ${HARDWARE} -tools '' -build-cache ${BUILD_PATH} -build-path ${BUILD_PATH} \
-		-compile ${ARDUINO_BUILDER_COMPILE_OPTS} ${MAIN_SOURCE}
+	arduino-cli compile ${LIBRARY_PATH_OPTS} \
+		--fqbn ${BOARD} --build-cache-path ${BUILD_PATH} --build-path ${BUILD_PATH} \
+		${ARDUINO_CLI_COMPILE_OPTS} ${MAIN_SOURCE}
 
 compile: ${HEX_FILE}
 
