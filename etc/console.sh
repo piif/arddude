@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HERE="$(cd $(dirname $0) ; /bin/pwd)"
+HERE="$(cd $(dirname $(realpath $0)) ; /bin/pwd)"
 ROOTDIR="$(dirname "$HERE")"
 
 JAR="$(/bin/ls -d1 $ROOTDIR/target/ArdDude-*-shaded.jar $ROOTDIR/lib/arddude.jar 2> /dev/null | tail -1)"
