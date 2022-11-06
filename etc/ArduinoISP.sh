@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# uploads ArduinoISP to an Uno
+
 ICI=$(dirname $0)
 
 $ARDUINO_IDE/hardware/tools/avr/bin/avrdude \
