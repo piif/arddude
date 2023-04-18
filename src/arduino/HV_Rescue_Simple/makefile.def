@@ -1,0 +1,6 @@
+# FOR UNO
+BOARD := arduino:avr:uno
+PORT := /dev/ttyUSB0
+ARDUINO_CLI_UPLOAD_OPTS=-v
+# ARDUINO_CLI_COMPILE_OPTS=-v
+ARDDUDE_OPTIONS := -l cr -o raw -d
