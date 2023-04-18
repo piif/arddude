@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# uploads ArduinoISP to an Uno
+# uploads ArduinoISP example project to an Uno
 
-ICI=$(dirname $0)
+HERE=$(cd $(dirname $0) ; /bin/pwd)
+ARDDUDE=$(dirname $HERE)
 
-$ARDUINO_IDE/hardware/tools/avr/bin/avrdude \
-	-C$ARDUINO_IDE/hardware/tools/avr/etc/avrdude.conf \
-	-v -patmega328p -carduino -P/dev/ttyUSB0 -b115200 \
-	-D -Uflash:w:$ICI/ArduinoISP.cpp.hex:i 
+make -f $ARDDUDE/etc/Makefile -C $ARDDUDE/src/arduino/ArduinoISP upload
