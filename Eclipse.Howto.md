@@ -1,146 +1,107 @@
 Use Eclipse for Arduino programming
 =====
 
-The goal of this document is to explain how to configure Eclipse to use it for programming on arduino boards.
-This method depends on ArdDude application and Arduino original IDE (to dispose of compilation/upload tools and board descriptors in a standard directory organisation)
+The goal of this document is to explain how to configure Eclipse and CDT to use it for programming on arduino boards.
+This method depends on ArdDude application and Arduino-cli tool (https://github.com/arduino/arduino-cli)
 
-This howto has been tried with Luna 4.4.1 and Arduino IDE 1.6.0, under Windows 7 and Linux Fedora 20
+This howto has been tried with :
+- Eclipse 2019-06 (4.12) and Arduino-cli 0.3.7-alpha.preview, under Linux Fedora 29
 
 Requirements
 -----
 
 You need :
-* Eclipse (at date, last stable version is Luna 4.4.1) available at http://www.eclipse.org/downloads/
-* Arduino IDE  (at date, last stable version is 1.6.0) available at http://arduino.cc/en/Main/Software
-* ArdDude package, available at https://github.com/piif/arddude
+* Eclipse available at http://www.eclipse.org/downloads/
+* This ArdDude package, available at https://github.com/piif/arddude
 
-Install Arduino IDE
+Install Arduino Cli
 --
-for details, look at arduino.cc
+for details, look at https://github.com/arduino/arduino-cli
 
-Install Eclipse
+Install Eclipse with "CDT C/C++" plugin, or Eclipse-CDT version
 --
-for details, look at eclipse.org
+For details, look at eclipse.org
+CDT version shouldn't matter since we will only use "make" command, and no included toolchains
 
 Install ArdDude
 --
 
-Once you got the ArdDude.zip file, you just have to unzip ot where you want
-For the moment, there's no web site where to download this zip file, so you have to generate it.
+For the moment, there's no packaged version, so you have to generate it.
 * You need java, git and maven
 * clone git repo
   git clone https://github.com/piif/arddude.git
 * compile and package sources
   mvn clean package
-* zip is ready in target directory
+* zip is ready in target directory : target/ArdDude-(version).zip
+  unzip it anywhere you want
 
-Configure Eclipse
+Create a project
 --
 
-In following instructions, all pathes must be specified :
-* absolute whenever possible
-* with slashes (not backslashes)
-* ended with /
-* without spaces or special chars. Especially for Arduino IDE, if it's in a "Program Files (x86)" directory, it won't work -> move it.
-Thus, for example : C:/DevTools/Arddude/ and **not** /DevTools/Arddude nor C:\DevTools\Arddude
+* Select menu "File -> New -> Project" then "C/C++ Project" in "C/C++" section
+* Then choose type "Managed C/C++ project" (not "Makefile project")
+* In the next window, choose a name, select a project folder (in ~/Arduino if you want to stay compatible
+  with Arduino IDE), choose the type "Empty project" in "Makefile project" section and leave empty
+  the toolchain choice.
+* Click "Finish" and your project should appear in the left panel (if not, you certainly have to edit your current working set).
 
-Ok, follow this instructions :
-* from Help menu, choose "Eclipse Marketplace", search "Eclipse CDT" and install it
-* restart Eclipse
-* Windows > Preferences >  C/C++ > Build > environment
-	* add ARDUINO_IDE = where Arduino IDE is installed
-	* add ARDDUDE_DIR = where ArdDude zip file was unzipped
-	* if you're under Windows
-	  * add MAKE = ${ARDUINO_IDE}/hardware/arduino/sam/system/CMSIS/Examples/cmsis_example/gcc_arm/make.exe
-	  * add TEMP = ${TMP} (yes: with an 'E' on left side and not on right side !)
-	* if you're under linux
-	  * install gnu make and just define MAKE = make
-* Windows > Preferences > General > Editors > File associations :
-	* File types, add, *.ino
-	* Associated Editors, add, C/C++ Editor
-* Windows > Preferences > C/C++ > File types :
-	* add *.ino =  C++ source file
-* Windows > Preferences > C/C++ >  Build > Settings > folder Discovery , entry "CDT GCC Built-in compiler settings" :
-	set "Command to get compiler specs" to :
-	${MAKE} TARGET_BOARD=${ConfigName} CMD="${COMMAND} ${FLAGS} -E -P -v -dD '${INPUTS}'" discovery
+Here, you have a project directory with two files : .project and .cproject
+You may start to write your main .ino file, but all arduino functions and types (Serial, byte, Arduino.h inclusion ...)
+will be marked as errors in the text editor.
 
-Create a first project
+Configure Arduino paths and symbols
 --
 
-* New project > C/C++ > "Makefile project from existing code"
-* Project properties -> CDT
-	* C/C++ build, folder "Builder settings", configuration "All configurations"
-		* unset "use default build command"
-		* Replace command by : ${MAKE} TARGET_BOARD=${ConfigName}
-		* unset "generate Makefiles"
-		* set "Build directory" to : ${ProjDirPath}
-	* C/C++ build > Toolchain Editor, configuration "All configurations"
-		* unset "Display compatible …."
-			* Current Toolchain : Choose one of GCC chains, according to your environment
-			  (will not be used, but alows eclipse to fill other prefenrences with target languages)
-			* Current builder : Gnu make builder
-	* C/C++ general -> Preprocessor Include... > folder Providers
-		* unset "Managed Build Setting Entries" (really ?)
-		* set "Built-in Compiler Settings", then select it to access to its details
-		*unset "Use global provider ...", but let the same command line (or ${ConfigName} will be empty)
-	* C/C++ build, button "Manage configurations"
-		* Select "default" and click "Rename". Rename in your target platform name (ie "uno" lower case)
-		* Create other entries with your other target platforms if needed
-		  To obtain the exact name of each platform, from ArdDude directory, launch etc/mkmk.sh -B (or .bat)
-	* Project properties > C/C++ general > indexer :
-		* set "Enable specific ..." and "Enable indexer"
-		* on bottom, set "Use active build configuration"
+To solve this problem, from command line, "cd" into this directory and :
+* if you didn't create your main source file, create it empty :
+  touch your_project_name.ino
 
-Create another project
+* launch following command (adapt to your target board) :
+  make -f /path/to/arddude/etc/Makefile eclipse BOARD=arduino:avr:uno
+
+  This command will create a file named eclipse.settings.xml in your project directory
+
+* Go back into eclipse, right click on your project and select Properties -> "C/C++ General" -> "Paths & symbols"
+* Click "import settings", select the eclipse.settings.xml file path , select all and import. 
+
+In your main source, declare Arduino header file
+  #include <Arduino.h>
+
+It's not necessary from Arduino IDE, but if you include it, Arduino IDE won't complain thus it's
+compatible with twice IDEs.
+Now, all arduino symbols should be ok, and auto-completion should work.
+
+Add libraries
 --
-* New project > C/C++ > "Makefile project from existing code"
-* Project properties -> CDT -> C/C++ build, button "Manage configurations"
-  * new , select "Import from projects" , choose a configuration from first project
-* take a moment to verify that settings above are correct
 
-Create your Makefile
+If your code relies on external libraries, you have to include their header files.
+In order to enable syntax check and auto-completion on it, you need to run again previous step
+(make .. eclipse + import settings)
+
+To specify the library location, add this argument to "make" command :
+  LIBRARY_PATH="/path/to/library1 /path/to/library2"
+
+
+Don't repeat command line arguments
 --
-* Create a file names Makefile (with upper M) in project root directory.
-* open it
-* you must at least type in
-  include ${ARDDUDE_DIR}/etc/main.mk
-* before this line, you can fix some variables like default upload port, main program name, dependencies
-  details to be continued ...
 
-Write your code
+Argument to specify on each "make" call may be written once in a makefile.def file with such content :
+	BOARD := arduino:avr:uno
+	PORT := /dev/ttyUSB0
+	LIBRARY_PATH := /path/to/library1 /path/to/library2
+	ARDDUDE_OPTIONS := -l cr -o raw -d
+
+Those definitions will be included by main Makefile
+
+
+Compile
 --
-* switch to C/C++ perspective (Window > Open perspective > Other -> C/C++
-* Create your source fileswith .c, .cpp or .ino extension
-* Right click on project > Build configuration > Set active
-  select desired target platform 
-  #define and specific variables should update according to this platform
-  (ie PORTD register variable will be marked as error on Due platform, but not on Uno platform) 
-* Compile them by clicking on "build" button
-  a .hex file should be generated into target/xxx directory (xxx = target platform)
-  On first build, core libraries should be compiled in to ArdDude target directory
+In project properties windows, select "C/C++ build" and in "build command" type in
+  make -C ${ProjDirPath} -f ${workspace_loc:ArdDude/etc/Makefile}
 
-The code is not pre-compiled by Arduino, thus you have to write real C code. Mainly :
-- pathes in #include statements must be detailed relative to project root
-- methods and variables must be declared before to be used
- 
-Upload it
---	
-ArdDude project contains a etc/console.sh (or .bat) script to connect to yout arduino and upload code
-from "cmd" or cygwin console (under windows), or terminal (under linux) launch :
-	etc/console.sh -b your_board -p your_port -I arduino_ide_path -f path_to_your_target_file -u
-"-u" forces upload at launch
-Then, console will connect to serial port AND scan target file updates
-If you launch again "build" from Eclipse, upload is relaunched automatically then console connects again
+Select your source code in left panel then click on "build 'default'" (hammer icon)
 
-To remake indexes
+
+Console
 --
-Sometime, some (or all) platform specific references (registers, includes, arduino methods) are marked as error
-Three solutions to solve this problem :
-* rebuild index : right click on project > Index > Rebuild or Refresh or other entries
-* Project properties > C/C++ general > indexer :
-	unset indexer, apply, set back indexer, apply
-* Indexer depends on files generated from "discovery" which itself depends on ArdDude makefile rules, but there's nothing to force discovery to relaunch
-	in Project properties > C/C++ general > "Preprocessor includes ..."
-	* Folder Providers, entry "Built in compiler settings"
-		set  "use global ..", apply, unset, apply
-
+TODO ...

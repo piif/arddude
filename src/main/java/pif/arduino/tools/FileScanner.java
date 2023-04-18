@@ -5,13 +5,14 @@ import java.io.FileNotFoundException;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * given a file name, calls onFileChange() method every time this file lastModified time changes
  */
 public class FileScanner {
-	private static Logger logger = Logger.getLogger(FileScanner.class);
+	private static Logger logger = LogManager.getLogger();
 	protected File source;
 	protected FileScanHandler handler;
 

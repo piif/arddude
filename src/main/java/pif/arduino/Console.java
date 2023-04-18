@@ -1,11 +1,16 @@
 package pif.arduino;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
-import org.apache.log4j.Logger;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Options;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import pif.arduino.tools.JlineConsole;
 import pif.arduino.tools.hexTools;
@@ -21,12 +26,24 @@ import pif.arduino.tools.hexTools;
  *
  */
 public class Console extends Thread {
-	Logger logger = Logger.getLogger(Console.class);
+	Logger logger = LogManager.getLogger();
 
 	protected ConsolePeer peer;
-	protected boolean raw = false;
+
+	static Options options;
+	static {
+		options = new Options();
+		options.addOption("h", "help", false, "usage");
+		options.addOption("l", "linemode", true, "line mode cr, lr, crlf or none (default)");
+		options.addOption("r", "raw", false, "raw mode. Console output is raw, no history nor editing facilities");
+		options.addOption("o", "output", true, "output mode : hex, ascii or raw");
+	}
+	static public Options getOptions() {
+		return options;
+	}
 
 	static public final String PROMPT = "> ";
+
 	/*
 	 * console must be "attached" to a class which handle commands and data, thru
 	 * this interface
@@ -39,8 +56,9 @@ public class Console extends Thread {
 		public void onOutgoingData(byte data[]);
 
 		/**
-		 * called when console receives command it can't handle itself
+		 * called when console receives command before trying to handle it itself
 		 * @param command command line, without '!' prefix
+		 * @return true if peer as handled the command
 		 */
 		public boolean onCommand(String command);
 
@@ -48,24 +66,99 @@ public class Console extends Thread {
 		 * called when console is closed (Ctrl-D or !exit command, or unrecoverable error)
 		 * @param status 0 for normal exit, error code else
 		 */
-		public void onDisconnect(int status);
+		public void onExit(int status);
 	}
 
-	public Console(ConsolePeer peer) {
-		this(peer, false);
+	protected boolean raw = false;
+
+	public boolean isRaw() {
+		return raw;
 	}
 
-	public Console(ConsolePeer peer, boolean raw) {
-		this.raw = raw;
-		if (raw) {
-			displayMode = MODE_RAW;
+	// current display mode
+	public static final byte MODE_RAW   = 0;
+	public static final byte MODE_ASCII = 1;
+	public static final byte MODE_HEX   = 2;
+
+	protected byte displayMode = MODE_ASCII;
+
+	public String getDisplayMode() {
+		switch (displayMode) {
+		case MODE_RAW  : return "raw";
+		case MODE_ASCII: return "ascii";
+		case MODE_HEX  : return "hex";
+		default: return "???";
+		}
+	}
+
+	// current line mode
+	public static final String LINE_CR   = "\r";
+	public static final String LINE_LF   = "\n";
+	public static final String LINE_CRLF = "\r\n";
+	public static final String LINE_NONE = "";
+
+	protected String lineMode = LINE_NONE;
+
+	public String getLineMode() {
+		switch (lineMode) {
+		case LINE_CR  : return "CR";
+		case LINE_LF  : return "LF";
+		case LINE_CRLF: return "CRLF";
+		case LINE_NONE: return "none";
+		default: return "???";
+		}
+	}
+
+	public Console(ConsolePeer peer) throws IllegalArgumentException {
+		this(peer, null);
+	}
+
+	public Console(ConsolePeer peer, CommandLine commandLine) throws IllegalArgumentException {
+		if (commandLine!=null) {
+			if (commandLine.hasOption('l')) {
+				switch(commandLine.getOptionValue('l')) {
+				case "cr":
+					lineMode = LINE_CR;
+					break;
+				case "lf":
+					lineMode = LINE_LF;
+					break;
+				case "crlf":
+					lineMode = LINE_CRLF;
+					break;
+				case "none":
+					lineMode = LINE_NONE;
+					break;
+				default:
+					throw new IllegalArgumentException("bad value for 'linemode' option");
+				}
+			}
+			if (commandLine.hasOption('o')) {
+				switch(commandLine.getOptionValue('o')) {
+				case "hex":
+					displayMode = MODE_HEX;
+					break;
+				case "ascii":
+					displayMode = MODE_ASCII;
+					break;
+				case "raw":
+					displayMode = MODE_RAW;
+					break;
+				default:
+					throw new IllegalArgumentException("bad value for 'output' option");
+				}
+			}
+			if (commandLine.hasOption('r')) {
+				raw = true;
+				displayMode = MODE_RAW;
+			}
 		}
 		this.peer = peer;
 	}
 
 	/**
 	 *  console where incoming data are displayed and command input comes from
-	 *  wraps JLineConsole or System.in/out according to raw mode
+	 *  wrapped JLineConsole or System.in/out according to raw mode
 	 */
 	protected class MyConsole {
 		// jline version if not raw
@@ -100,21 +193,29 @@ public class Console extends Thread {
 	}
 	protected MyConsole console;
 
-	// current display mode
-	static final byte MODE_RAW   = 0;
-	static final byte MODE_ASCII = 1;
-	static final byte MODE_HEX   = 2;
+	protected byte[] ackBytes = null;
+	protected boolean ackReceived = false;
 
-	protected byte displayMode = MODE_ASCII;
+	protected static boolean bytesCompare(byte[] a, byte[] b, int bFrom) {
+		for (int i=0; i<a.length; i++) {
+			if (a[i] != b[i+bFrom]) {
+				return false;
+			}
+		}
+		return true;
+	}
 
-	// current line mode
-	static final String LINE_CR   = "\r";
-	static final String LINE_LF   = "\n";
-	static final String LINE_CRLF = "\r\n";
-	static final String LINE_NONE = "";
-
-	protected String lineMode = LINE_NONE;
-
+	protected static boolean findBytes(byte[] toFind, byte[] buffer, int length) {
+		if (toFind.length > length) {
+			return false;
+		}
+		for (int i = 0; i < length-toFind.length+1; i++) {
+			if (bytesCompare(toFind, buffer, i)) {
+				return true;
+			}
+		}
+		return false;
+	}
 	/*
 	 * peer sends data it receives thru this method
 	 */
@@ -142,8 +243,17 @@ public class Console extends Thread {
 		}
 		try {
 			console.insertString(toDisplay);
+		} catch (NullPointerException e) {
+			logger.error("console is null (start up race condition ?)");
 		} catch (IOException e) {
 			logger.error("Couldn't display incoming data", e);
+		}
+		if (ackBytes != null && findBytes(ackBytes, data, length)) {
+			synchronized (ackBytes) {
+				logger.debug("Found ACK");
+				ackReceived = true;
+				ackBytes.notify();
+			}			
 		}
 	}
 
@@ -166,36 +276,131 @@ public class Console extends Thread {
 	}
 
 	void handleCommand(String line) {
+		// delegate to peer at first
 		if (peer.onCommand(line)) {
 			return;
 		}
-		if (line.equals("cr")) {
+
+		switch(line) {
+		case "cr":
 			lineMode = LINE_CR;
-		} else if (line.equals("lf")) {
+			break;
+		case "lf":
 			lineMode = LINE_LF;
-		} else if (line.equals("crlf")) {
+			break;
+		case "crlf":
 			lineMode = LINE_CRLF;
-		} else if (line.equals("none")) {
+			break;
+		case "none":
 			lineMode = LINE_NONE;
+			break;
 
-		} else if (line.equals("hex")) {
+		case "hex":
 			displayMode = MODE_HEX;
-		} else if (line.equals("ascii")) {
+			break;
+		case "ascii":
 			displayMode = MODE_ASCII;
-		} else if (line.equals("raw")) {
+			break;
+		case "raw":
 			displayMode = MODE_RAW;
+			break;
 
-		} else if (line.startsWith("x ")) {
-			byte[] data = readHexData(line.substring(2));
-			logger.debug(hexTools.toHexDump(data));
-			if (data != null) {
-				peer.onOutgoingData(data);
-			}
-
-		} else if (line.equals("help") || line.equals("?")) {
+		case "help":
+		case "?":
 			help();
-		} else {
-			logger.warn("Unknown command " + line + ". Type !help or !? for help");
+			break;
+
+		case "exit":
+			// calling method will handle this
+			break;
+
+		default:
+			if (line.startsWith("x ")) {
+				byte[] data = readHexData(line.substring(2));
+				logger.debug(hexTools.toHexDump(data));
+				if (data != null) {
+					peer.onOutgoingData(data);
+				}
+			} else if (line.startsWith("read ")) {
+				String[] args = line.substring(4).split("\\s+");
+				for(int i = 0; i < args.length; i++) {
+					System.out.println("'" + args[i] + "'");
+				}
+				// args[0] is empty as string begins with a space
+				if (args.length <= 1) {
+					logger.error("read command needs a filename. Type !help or !? for help");
+					return;
+				}
+				String filename = args[1];
+				int delay = 0;
+				int delayIndex = -1;
+				if (args.length >= 3) {
+					if (args[2].charAt(0) == '"') {
+						ackBytes = args[2].substring(1, args[2].length()-1).getBytes();
+						delay = 2000; // default timeout when ack string
+						if (args.length > 3) {
+							delayIndex = 3;
+						}
+					} else {
+						delayIndex = 2;
+					}
+				}
+				if (delayIndex != -1) {
+					try {
+						delay = Integer.parseInt(args[delayIndex]);
+					} catch(NumberFormatException e) {
+						logger.error("read command needs a integer as argument #" + delayIndex + ". Type !help or !? for help");
+					}
+				}
+				try {
+					BufferedReader inFile = new BufferedReader(new FileReader(filename));
+					logger.debug("Sending '" + filename + "'");
+					if (ackBytes != null) {
+						logger.debug("   with ack '" + new String(ackBytes) + "'");
+					}
+					if (delay != 0) {
+						logger.debug("   with delay " + delay);
+					}
+					String fileline;
+					for(;;) {
+						fileline = inFile.readLine();
+						if (fileline == null) {
+							break;
+						}
+						logger.debug("Sending line '" + fileline + "'");
+						peer.onOutgoingData(fileline.getBytes());
+						peer.onOutgoingData(lineMode.getBytes());
+						if (ackBytes != null) {
+							synchronized (ackBytes) {
+								try {
+									logger.debug("Waiting ACK");
+									ackBytes.wait(delay);
+									if (!ackReceived) {
+										logger.error("ack not received, file read aborted");
+										break;
+									}
+									ackReceived = false;
+								} catch (InterruptedException e) {}								
+							}
+						} else if (delay != 0) {
+							try {
+								Thread.sleep(delay);
+							} catch (InterruptedException e) {}
+						}
+					}
+					inFile.close();
+				} catch (FileNotFoundException e) {
+					logger.error("read command can't open file " + filename + ". Type !help or !? for help");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					logger.error("read command failed to close file", e);
+				} finally {
+					delay = 0;
+					ackBytes = null;
+				}
+			} else {
+				logger.warn("Unknown command " + line + ". Type !help or !? for help");
+			}
 		}
 	}
 
@@ -214,7 +419,7 @@ public class Console extends Thread {
 		//  1 = waiting for high part of a byte value
 		//  2 = waiting for low part of a byte value
 		// TODO 0d123 => input decimal value
-		// TODO 0w123 or 0w-123 or => word big endian value
+		// TODO 0w123 or 0w-123 => word big endian value
 		// TODO 0l123 or 0l-123 => long big endian value
 		// for these options, detect d, w or l when state==1 => state = 3 / 4 / 5
 		// + flag (-3 / -4 / -5 ?) to handle negative value
@@ -288,7 +493,7 @@ public class Console extends Thread {
 			console = new MyConsole(raw);
 		} catch (IOException e) {
 			logger.error("Can't initialize console", e);
-			peer.onDisconnect(1);
+			peer.onExit(1);
 			return;
 		} 
 
@@ -309,12 +514,12 @@ public class Console extends Thread {
 							setBuffer(inputLine.substring(1));
 							send();
 						} else {
-							handleCommand(inputLine.substring(1));
 							if ("!exit".equals(inputLine)) {
 								logger.debug("Exit console");
-								peer.onDisconnect(0);
+								peer.onExit(0);
 								return;
 							}
+							handleCommand(inputLine.substring(1));
 						}
 					} else {
 						setBuffer(inputLine);
@@ -322,36 +527,38 @@ public class Console extends Thread {
 					}
 				} catch (Exception e) {
 					logger.info("Exception in console loop", e);
-//					e.printStackTrace();
 				}
 			}
 			logger.debug("EOF");
-			peer.onDisconnect(0);
+			peer.onExit(0);
 		} catch (IOException e) {
 			logger.error("Exception with input, cancelling console", e);
-			peer.onDisconnect(1);
-//			e.printStackTrace();
+			peer.onExit(1);
 		}
 	}
 
 	void help() {
-		// TODO
 		String help = "Any byte incomming from peer is displayed in a format according to display mode (see hex, rax and ascii command below)"
 				+ "Any character entered in console are filled in a sending buffer, excepted if line begins with '!'.\n"
-				+ "  When hitting enter, end of line characters are appended, and buffer is sent to peer.\n"
+				+ "  When hitting enter, end of line characters are appended and buffer is sent to peer.\n"
 				+ "  End of line character depends on current line mode, which is 'none' by default (thus no character).\n"
-				+ "  See cr, lf, .. commands balowto modify this mode.\n"
-				+ "  To send explicitly a line beginning by '!', double it ('!!')\n"
-				+ "Lines begining with a '!' start a command :"
-				+ "  !exit (or Ctrl-D) : exit console program\n"
-				+ "  ! : resend last sending buffer, including its end of line characters (even if line mode has been modified)\n"
-				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C\n"
-				+ "  !ascii : printable characters are displayed raw, other ones are displayed in [hh] format (default mode)\n"
-				+ "  !raw : all incomming bytes are displayed raw (default mode if -raw command line option was set)\n"
-				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\r', '\n', '\r\n', nothing\n"
-				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text\n"
-				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ]\n"
-				+ "    Caution : this not does NOT append end of line characters, whatever current line mode";
+				+ "  To change this mode see cr, lf, crlf and none commands below.\n"
+				+ "  To send explicitly a line beginning by '!', double it ('!!').\n"
+				+ "Lines begining with a '!' start a command :\n"
+				+ "  !help or !? : this help.\n"
+				+ "  !exit (or Ctrl-D) : exit console program.\n"
+				+ "  ! : resend last sending buffer, including its end of line characters (even if line mode has been modified).\n"
+				+ "  !hex : incoming bytes are displayed in hex, in same format than hexdump -C.\n"
+				+ "  !ascii : printable characters are displayed raw, other ones are displayed in [hh] format (default mode).\n"
+				+ "  !raw : all incomming bytes are displayed raw (default mode if -raw command line option was set).\n"
+				+ "  !cr, !lf, !crlf, !none : set 'end of line' mode, respectivly to '\\r', '\\n', '\\r\\n', nothing.\n"
+				+ "  !x : rest of input line is interpreted in a intuitive (?) way mixing hex values and raw text.\n"
+				+ "    Example : 0 123456 7 8 9ab 'ab c' 0123  becames hex bytes [ 00 12 34 56 07 08 9a 0b 61 62 20 63 01 23 ].\n"
+				+ "    Caution : this not does NOT append end of line characters, whatever current line mode.\n"
+				+ "  !read filepath [ delay | \"ack\" [ timeout ] ] : read filepath and send it to peer line by line.\n"
+				+ "    Current linefeed mode is sent after each line.\n"
+				+ "    If specified, waits to receive back 'ack' string after each line, or cancel if timeout expires (defaults to 2000ms).\n"
+				+ "    Pauses 'delay' ms between lines, if specified";
 		System.out.println(help);
 	}
 }

@@ -5,26 +5,12 @@
 	<artifactId>ArdDude</artifactId>
 	<name>ArdDude</name>
 	<packaging>jar</packaging>
-	<version>0.1.0-SNAPSHOT</version>
+	<version>0.2.0-SNAPSHOT</version>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<arduino.ide.basedir>/opt/arduino-1.6.0/</arduino.ide.basedir>
-		<!-- arduino.ide.basedir>C:/DevTools/arduino-1.6.0/</arduino.ide.basedir -->
-		<arduino.ide.corejar>${arduino.ide.basedir}/lib/arduino-core.jar</arduino.ide.corejar>
 		<app.main.class>pif.arduino.ArdConsole</app.main.class>
 	</properties>
-
-	<profiles>
-		<profile>
-			<id>eclipse</id>
-			<properties>
-				<!-- arduino.ide.corejar>C:/SRC/GitHub/Arduino/arduino-core/arduino-core.jar</arduino.ide.corejar -->
-				<!-- OVERRIDE THIS AS MAVEN ARGUMENT IF NEEDED -->
-				<arduino.ide.corejar>/opt/arduino-1.6.0/lib/arduino-core.jar</arduino.ide.corejar>
-			</properties>
-		</profile>
-	</profiles>
 
 	<build>
 		<plugins>
@@ -32,8 +18,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.1</version>
 				<configuration>
-					<source>1.7</source>
-					<target>1.7</target>
+					<source>1.8</source>
+					<target>1.8</target>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -45,6 +31,9 @@
 						<manifest>
 							<mainClass>${app.main.class}</mainClass>
 						</manifest>
+						<manifestEntries>
+							<Multi-Release>true</Multi-Release>
+						</manifestEntries>
 					</archive>
 				</configuration>
 			</plugin>
@@ -55,11 +44,6 @@
 				<configuration>
 					<shadedArtifactAttached>true</shadedArtifactAttached>
 					<shadedClassifierName>shaded</shadedClassifierName>
-					<transformers>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-							<mainClass>${app.main.class}</mainClass>
-						</transformer>
-					</transformers>
 				</configuration>
 				<executions>
 					<execution>
@@ -73,7 +57,6 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
-				<version>2.4</version>
 				<executions>
 					<execution>
 						<id>distrib</id>
@@ -96,9 +79,14 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>log4j</groupId>
-			<artifactId>log4j</artifactId>
-			<version>1.2.16</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>2.17.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>2.17.1</version>
 		</dependency>
 		<dependency>
 			<groupId>commons-cli</groupId>
@@ -111,37 +99,9 @@
 			<version>1.1</version>
 		</dependency>
 		<dependency>
-			<groupId>com.sun.jna</groupId>
-			<artifactId>jna</artifactId>
-			<version>3.0.9</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.jmdns</groupId>
-			<artifactId>jmdns</artifactId>
-			<version>3.4.1</version>
-		</dependency>
-		<dependency>
 			<groupId>org.scream3r</groupId>
 			<artifactId>jssc</artifactId>
 			<version>2.8.0</version>
-		</dependency>
-		<!-- dependency>
-				<groupId>de.root1</groupId>
-				<artifactId>rxtx-rebundled</artifactId>
-				<version>2.1-7r2-3</version>
-		</dependency -->
-		<!-- https://mvnrepository.com/artifact/li.rudin.arduino/arduino-core -->
-		<!-- dependency>
-		    <groupId>li.rudin.arduino</groupId>
-		    <artifactId>arduino-core</artifactId>
-		    <version>2.6</version>
-		</dependency -->
-		<dependency>
-			<groupId>cc.arduino</groupId>
-			<artifactId>arduino-core</artifactId>
-			<version>1.6.0</version>
-			<scope>system</scope>
-			<systemPath>${arduino.ide.corejar}</systemPath>
 		</dependency>
         <dependency>
             <groupId>jline</groupId>
@@ -150,15 +110,11 @@
         </dependency>
 	</dependencies>
 
-	<repositories>			
+	<repositories>
 		<repository>
-			<id>root1-releases</id>
-			<name>root1.de Releases Repository</name>
-			<layout>default</layout>
-			<url>http://nexus.root1.de/content/repositories/releases/</url>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
+			<id>apache</id>
+			<name>Apache Repository</name>
+			<url>https://repository.apache.org/</url>
 		</repository>
         <repository>
             <id>jline</id>
